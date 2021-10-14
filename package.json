@@ -1,0 +1,39 @@
+{
+  "name": "skydisbot",
+  "version": "1.0.0",
+  "description": "Discord bot version 3",
+  "scripts": {
+    "start": "node --experimental-modules build",
+    "clean": "rimraf coverage dist tmp",
+    "build": "tsc -p tsconfig.release.json",
+    "prebuild": "npm run lint",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "jest --coverage"
+  },
+  "author": "skycolor @ skycolor.space",
+  "license": "Apache-2.0",
+  "type": "module",
+  "devDependencies": {
+    "@types/jest": "^27.0.2",
+    "@types/node": "^15.6.0",
+    "@typescript-eslint/eslint-plugin": "^4.24.0",
+    "@typescript-eslint/parser": "^4.24.0",
+    "eslint": "^7.27.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-jest": "^25.0.6",
+    "jest": "^27.2.5",
+    "prettier": "^2.4.1",
+    "rimraf": "^3.0.2",
+    "ts-node": "^10.0.0"
+  },
+  "dependencies": {
+    "@discordjs/opus": "^0.5.0",
+    "bufferutil": "^4.0.3",
+    "discord.js": "^12.5.3",
+    "erlpack": "github:discord/erlpack",
+    "libsodium-wrappers": "^0.7.9",
+    "sodium": "^3.0.2",
+    "utf-8-validate": "^5.0.5",
+    "zlib-sync": "^0.1.7"
+  }
+}
