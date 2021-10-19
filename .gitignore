@@ -32,3 +32,4 @@ build/
 config.json
 database.json
 cache/
+log4js.config.json

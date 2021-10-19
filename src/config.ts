@@ -3,11 +3,13 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 
 interface Config {
     DIS_TOKEN: string
+    LOG_CONFIG: string
 }
 
 const PLACEHOLDER = '[change_me]';
 const DefaultConfig: Config = {
-    DIS_TOKEN: PLACEHOLDER
+    DIS_TOKEN: PLACEHOLDER,
+    LOG_CONFIG: PLACEHOLDER,
 };
 const configPath = join(process.cwd(), 'config.json');
 let CurrentConfig: Config | undefined = undefined;

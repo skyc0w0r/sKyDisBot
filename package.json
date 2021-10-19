@@ -15,6 +15,7 @@
   "type": "module",
   "devDependencies": {
     "@types/jest": "^27.0.2",
+    "@types/log4js": "^2.3.5",
     "@types/node": "^15.6.0",
     "@typescript-eslint/eslint-plugin": "^4.24.0",
     "@typescript-eslint/parser": "^4.24.0",
@@ -32,6 +33,7 @@
     "discord.js": "^12.5.3",
     "erlpack": "github:discord/erlpack",
     "libsodium-wrappers": "^0.7.9",
+    "log4js": "^6.3.0",
     "sodium": "^3.0.2",
     "utf-8-validate": "^5.0.5",
     "zlib-sync": "^0.1.7"
