@@ -4,12 +4,14 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 interface Config {
     DIS_TOKEN: string
     LOG_CONFIG: string
+    YT_DATA_TOKEN: string
 }
 
 const PLACEHOLDER = '[change_me]';
 const DefaultConfig: Config = {
     DIS_TOKEN: PLACEHOLDER,
     LOG_CONFIG: PLACEHOLDER,
+    YT_DATA_TOKEN: PLACEHOLDER,
 };
 const configPath = join(process.cwd(), 'config.json');
 let CurrentConfig: Config | undefined = undefined;

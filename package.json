@@ -17,6 +17,7 @@
     "@types/jest": "^27.0.2",
     "@types/log4js": "^2.3.5",
     "@types/node": "^15.6.0",
+    "@types/node-fetch": "^3.0.3",
     "@typescript-eslint/eslint-plugin": "^4.24.0",
     "@typescript-eslint/parser": "^4.24.0",
     "eslint": "^7.27.0",
@@ -25,6 +26,7 @@
     "jest": "^27.2.5",
     "prettier": "^2.4.1",
     "rimraf": "^3.0.2",
+    "ts-jest": "^27.0.7",
     "ts-node": "^10.0.0"
   },
   "dependencies": {
@@ -34,8 +36,10 @@
     "erlpack": "github:discord/erlpack",
     "libsodium-wrappers": "^0.7.9",
     "log4js": "^6.3.0",
+    "node-fetch": "^3.0.0",
     "sodium": "^3.0.2",
     "utf-8-validate": "^5.0.5",
+    "ytdl-core": "^4.9.1",
     "zlib-sync": "^0.1.7"
   }
 }

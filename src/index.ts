@@ -2,15 +2,17 @@ import Discord from 'discord.js';
 import Logger from 'log4js';
 import proccess from 'process';
 import config from './config.js';
-import AudioPlayer from './Service/audioPlayer.js';
+import AudioPlayer from './Service/AudioPlayer.js';
+import YouTubeApi from './Service/YouTubeApi.js';
 
 async function main() {
     config.check();
     Logger.configure(config.get().LOG_CONFIG);
     
     const logger = Logger.getLogger('main');
+    const yt = new YouTubeApi(config.get().YT_DATA_TOKEN);
     const cl = new Discord.Client();
-    const ap = new AudioPlayer();
+    const ap = new AudioPlayer(yt);
 
     cl.on('ready', () => {
         logger.info('Discord client ready');
