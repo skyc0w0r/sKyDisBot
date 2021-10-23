@@ -10,7 +10,7 @@ interface Config {
 const PLACEHOLDER = '[change_me]';
 const DefaultConfig: Config = {
     DIS_TOKEN: PLACEHOLDER,
-    LOG_CONFIG: PLACEHOLDER,
+    LOG_CONFIG: 'log4js.default.json',
     YT_DATA_TOKEN: PLACEHOLDER,
 };
 const configPath = join(process.cwd(), 'config.json');

@@ -1,0 +1,29 @@
+{
+  "appenders": {
+    "file": {
+      "type": "dateFile",
+      "filename": "logs/all.log",
+      "pattern": "yyyy-MM-dd.log",
+      "layout": {
+        "type": "pattern",
+        "pattern": "[%d] [%-5p] [%-20c]: %m"
+      }
+    },
+    "con": {
+      "type": "stdout",
+      "layout": {
+        "type": "pattern",
+        "pattern": "%[[%r] [%-5p] [%c]:%] %m"
+      }
+    }
+  },
+  "categories": {
+    "default": {
+      "appenders": [
+        "file",
+        "con"
+      ],
+      "level": "TRACE"
+    }
+  }
+}
