@@ -39,6 +39,7 @@ class AudioPlayer {
             }
         }
         catch (e) {
+            await msg.channel.send('Something went wrong, try again later');
             this.logger.warn('Got error, while ...', e);
         }
     }
@@ -46,7 +47,9 @@ class AudioPlayer {
     public async shutdown(): Promise<void> {
         for (const key of Object.keys(this.state)) {
             const info = this.state[key];
-            info.voiceConnection.disconnect();
+            if (info.voiceConnection) {
+                info.voiceConnection.disconnect();
+            }
         }
     }
 
