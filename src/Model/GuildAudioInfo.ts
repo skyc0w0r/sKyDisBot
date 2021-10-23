@@ -5,6 +5,7 @@ import AudioConvertionInfo from './AudioConvertionInfo.js';
 import IAudioMessage from './IAudioMessage.js';
 
 class GuildAudioInfo extends EventEmitter {
+    public Id: string;
     public voiceDispatch: Discord.StreamDispatcher | undefined;
     public voiceConnection: Discord.VoiceConnection | undefined;
     public voiceChannel: Discord.VoiceChannel | undefined;
@@ -12,8 +13,9 @@ class GuildAudioInfo extends EventEmitter {
     public playState: PlayState;
     public audioInfo: AudioConvertionInfo;
 
-    constructor() {
+    constructor(id: string) {
         super();
+        this.Id = id;
         this.queue = [];
         this.playState = PlayState.Stopped;
     }

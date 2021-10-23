@@ -14,7 +14,7 @@ async function main() {
     const yt = new YouTubeApi(config.get().YT_DATA_TOKEN);
     const ac = new AudioConverter();
     const cl = new Discord.Client();
-    const ap = new AudioPlayer(yt, ac);
+    const ap = new AudioPlayer(cl, yt, ac);
 
     await ac.init();
 

@@ -5,6 +5,7 @@ import RequestParamCollection from '../Model/RequestParamCollection.js';
 import Video from '../Model/YouTube/Video.js';
 import VideosResponse from '../Model/YouTube/VideosResponse.js';
 import Logger from 'log4js';
+import SearchResponse from '../Model/YouTube/SearchResponse.js';
 
 const YT_BASE_DATA_API_ADDRESS = 'https://youtube.googleapis.com/youtube/v3';
 
@@ -22,6 +23,20 @@ class YouTubeApi {
             id
         });
         return r.Items.length > 0 ? r.Items[0] : null;
+    }
+
+    public async search(q: string): Promise<Array<Video>> {
+        const r1 = await this.getData('search', SearchResponse, {
+            part: 'id',
+            maxResults: 10,
+            type: 'video',
+            q
+        });
+        const r2 = await this.getData('videos', VideosResponse, {
+            part: 'id,contentDetails,snippet',
+            id: r1.Items.map(c => c.Id).join(','),
+        });
+        return r2.Items;
     }
 
     public getAudioStream(id: string): Readable {
@@ -69,7 +84,7 @@ class YouTubeApi {
     private async getData<Type>(method: string, TypeNew: new(obj?: unknown) => Type, params?: RequestParamCollection): Promise<Type> {
         let url = `${YT_BASE_DATA_API_ADDRESS}/${method}?key=${this.token}&`;
         if (params) {
-            const paramString = Object.keys(params).map(p => `${p}=${escape(params[p] as string)}`).join('&');
+            const paramString = Object.keys(params).map(p => `${p}=${encodeURIComponent(params[p] as string)}`).join('&');
             url += paramString;
         }
         const resp = await fetch(url, {
