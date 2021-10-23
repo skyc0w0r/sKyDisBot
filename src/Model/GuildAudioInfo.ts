@@ -1,7 +1,7 @@
 import Discord from 'discord.js';
 import EventEmitter from 'events';
-import { Readable } from 'stream';
 import PlayState from '../Enum/PlayState.js';
+import AudioConvertionInfo from './AudioConvertionInfo.js';
 import IAudioMessage from './IAudioMessage.js';
 
 class GuildAudioInfo extends EventEmitter {
@@ -10,7 +10,7 @@ class GuildAudioInfo extends EventEmitter {
     public voiceChannel: Discord.VoiceChannel | undefined;
     public queue: IAudioMessage[];
     public playState: PlayState;
-    public destroyer: () => void;
+    public audioInfo: AudioConvertionInfo;
 
     constructor() {
         super();
@@ -29,12 +29,12 @@ class GuildAudioInfo extends EventEmitter {
         this.voiceDispatch = undefined;
     }
 
-    public play(stream: Readable, destroyer: () => void): void {
+    public play(info: AudioConvertionInfo): void {
         this.playState = PlayState.Playing;
-        this.voiceDispatch = this.voiceConnection.play(stream, { type: 'converted' });
+        this.voiceDispatch = this.voiceConnection.play(info.outStream, { type: 'converted' });
         this.voiceDispatch.on('close', () => this.finished());
         this.voiceDispatch.on('finish', () => this.finished());
-        this.destroyer = destroyer;
+        this.audioInfo = info;
     }
 
     private finished(): void {

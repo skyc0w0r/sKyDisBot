@@ -3,6 +3,7 @@ import Logger from 'log4js';
 import proccess from 'process';
 import config from './config.js';
 import AudioPlayer from './Service/AudioPlayer.js';
+import AudioConverter from './Service/AudioConverter.js';
 import YouTubeApi from './Service/YouTubeApi.js';
 
 async function main() {
@@ -11,8 +12,11 @@ async function main() {
     
     const logger = Logger.getLogger('main');
     const yt = new YouTubeApi(config.get().YT_DATA_TOKEN);
+    const ac = new AudioConverter();
     const cl = new Discord.Client();
-    const ap = new AudioPlayer(yt);
+    const ap = new AudioPlayer(yt, ac);
+
+    await ac.init();
 
     cl.on('ready', () => {
         logger.info('Discord client ready');

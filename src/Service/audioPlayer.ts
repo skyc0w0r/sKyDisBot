@@ -3,17 +3,20 @@ import Logger from 'log4js';
 import PlayState from '../Enum/PlayState.js';
 import AudioYTMessage from '../Model/AudioYTMessage.js';
 import { GuildAudioInfo, GuildAudioInfoCollection } from '../Model/GuildAudioInfo.js';
-import { ConvertAudioForDis } from './FFmpeg.js';
+import AudioConverter from './AudioConverter.js';
 import YouTubeApi from './YouTubeApi.js';
 
 class AudioPlayer {
     private logger: Logger.Logger;
     private youtubeApi: YouTubeApi;
+    private audioConverter: AudioConverter;
 
     private state: GuildAudioInfoCollection;
-    constructor(ytApi: YouTubeApi) {
+    constructor(ytApi: YouTubeApi, audConv: AudioConverter) {
         this.logger = Logger.getLogger('audio_player');
         this.youtubeApi = ytApi;
+        this.audioConverter = audConv;
+
         this.state = {};
     }
 
@@ -97,7 +100,8 @@ class AudioPlayer {
             return;
         }
 
-        g.destroyer();
+        this.logger.debug('Destroying player', guildId);
+        this.audioConverter.abortConvertion(g.audioInfo);
         g.voiceDispatch.destroy();
     }
 
@@ -119,13 +123,13 @@ class AudioPlayer {
             await g.joinChannel(audio.msg.member.voice.channel);
     
             if (audio instanceof AudioYTMessage) {
-                this.logger.info('Playing ', audio.videoId, 'to', guildId);
+                this.logger.info('Playing', audio.videoId, 'to', guildId);
                 
                 const stream = this.youtubeApi.getAudioStream(audio.videoId);
-                const [convStream, destroyer] = ConvertAudioForDis(stream);
-                convStream.on('error', () => this.destroyPlayer(guildId));
+                const info = this.audioConverter.convertForDis(stream);
+                info.outStream.on('error', () => this.destroyPlayer(guildId));
 
-                g.play(convStream, destroyer);
+                g.play(info);
             }
         }
         catch (err) {

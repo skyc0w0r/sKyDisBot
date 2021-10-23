@@ -1,16 +1,19 @@
 import fetch from 'node-fetch';
 import ytdl from 'ytdl-core';
-import { Readable } from 'stream';
+import { PassThrough, Readable } from 'stream';
 import RequestParamCollection from '../Model/RequestParamCollection.js';
 import Video from '../Model/YouTube/Video.js';
 import VideosResponse from '../Model/YouTube/VideosResponse.js';
+import Logger from 'log4js';
 
 const YT_BASE_DATA_API_ADDRESS = 'https://youtube.googleapis.com/youtube/v3';
 
 class YouTubeApi {
     private token: string;
+    private logger: Logger.Logger;
     constructor(accessToken: string) {
         this.token = accessToken;
+        this.logger = Logger.getLogger('youtube');
     }
 
     public async getVideoInfo(id: string): Promise<Video | null> {
@@ -22,7 +25,45 @@ class YouTubeApi {
     }
 
     public getAudioStream(id: string): Readable {
-        return ytdl(id, { filter: 'audioonly' });
+        // return ytdl(id, { filter: 'audioonly' });
+        const pt = new PassThrough({highWaterMark: 1 * 1024 * 1024});
+        let validTrack = false;
+        const watchIt = (begin = 0, retry = 0) => new Promise<void>((resolve) => {
+            const src = ytdl(id, { filter: 'audioonly' });
+            let len = 0;
+            src.on('data', (chunk: Uint8Array) => {
+                validTrack = true;
+                len += chunk.length;
+                if (len >= begin) {
+                    pt.emit('data', chunk);
+                }
+            });
+            src.on('close', () => {
+                pt.emit('close');
+                resolve();
+            });
+            src.on('end', () => {
+                pt.emit('end');
+                resolve();
+            });
+            src.on('error', (e) => {
+                // if (Object.keys(e).some(c => c === 'statusCode') && e['statusCode'] === 410) {
+                //     pt.emit('error', e);
+                // } else
+                if (!validTrack) {
+                    pt.emit('error', e);
+                } else
+                if (retry > 4) {
+                    this.logger.warn('Retry', retry, 'for', id, 'with error:', e);
+                    pt.emit('error', new Error('Max retries reached'));
+                } else {
+                    watchIt(len, retry + 1);
+                }
+                resolve();
+            });
+        });
+        watchIt();
+        return pt;
     }
 
     private async getData<Type>(method: string, TypeNew: new(obj?: unknown) => Type, params?: RequestParamCollection): Promise<Type> {
