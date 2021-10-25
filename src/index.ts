@@ -5,16 +5,18 @@ import config from './config.js';
 import AudioPlayer from './Service/AudioPlayer.js';
 import AudioConverter from './Service/AudioConverter.js';
 import YouTubeApi from './Service/YouTubeApi.js';
+import CommandParser from './Service/CommandParser.js';
 
 async function main() {
     config.check();
     Logger.configure(config.get().LOG_CONFIG);
     
     const logger = Logger.getLogger('main');
+    const cmdParser = new CommandParser();
     const yt = new YouTubeApi(config.get().YT_DATA_TOKEN);
     const ac = new AudioConverter();
     const cl = new Discord.Client();
-    const ap = new AudioPlayer(cl, yt, ac);
+    const ap = new AudioPlayer(cl, cmdParser, yt, ac);
 
     await ac.init();
 
@@ -32,10 +34,8 @@ async function main() {
         }
         logger.info('Got message', msg.content);
 
-        if (msg.content.startsWith('!audio')) {
-            ap.dispatch(msg);
-        }
-        
+        // TODO: add prefix parsing
+        cmdParser.Dispatch(msg.content.substring(1), msg);
     });
     
     await cl.login(config.get().DIS_TOKEN);

@@ -1,3 +1,7 @@
+import Discord from 'discord.js';
+import Video from './Model/YouTube/Video.js';
+import CommandParser from './Service/CommandParser.js';
+
 function time(seconds: number): string {
     const s = seconds % 60;
     const m = Math.floor(seconds / 60) % 60;
@@ -28,8 +32,28 @@ function date(date: Date): string {
     return `${y}-${m}-${d}`;
 }
 
+function _s(o: unknown): string {
+    if (o instanceof Discord.Guild) {
+        return `[${o.id}|${o.name}]`;
+    }
+    if (o instanceof Video) {
+        return `[${o.Id}|${time(o.ContentDetails.Duration)}|${o.Snippet.Title}]`;
+    }
+    if (o instanceof CommandParser) {
+        let res = o.Name;
+        let pt = o.Parent;
+        while (pt) {
+            res = `${pt.Name}/${res}`;
+            pt = pt.Parent;
+        }
+        return `[${res}]`;
+    }
+    return '';
+}
+
 export default {
     time,
     size,
     date,
+    _s,
 };

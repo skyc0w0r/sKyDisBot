@@ -5,33 +5,36 @@ import AudioConvertionInfo from './AudioConvertionInfo.js';
 import IAudioMessage from './IAudioMessage.js';
 
 class GuildAudioInfo extends EventEmitter {
-    public Id: string;
-    public voiceDispatch: Discord.StreamDispatcher | undefined;
-    public voiceConnection: Discord.VoiceConnection | undefined;
+    public guild: Discord.Guild;
     public voiceChannel: Discord.VoiceChannel | undefined;
+    public voiceConnection: Discord.VoiceConnection | undefined;
+    public voiceDispatch: Discord.StreamDispatcher | undefined;
     public queue: IAudioMessage[];
+    public audioInfo: AudioConvertionInfo | undefined;
     public playState: PlayState;
-    public audioInfo: AudioConvertionInfo;
 
-    constructor(id: string) {
+    constructor(guild: Discord.Guild) {
         super();
-        this.Id = id;
+        this.guild = guild;
         this.queue = [];
         this.playState = PlayState.Stopped;
     }
 
     public async joinChannel(channel: Discord.VoiceChannel): Promise<void> {
-        if (this.voiceChannel && this.voiceChannel.id === channel?.id) {
-            // we are already there
+        if (this.voiceChannel && this.voiceConnection) {
             return;
         }
-        // this.voiceConnection.disconnect();
+        await this.leaveChannel();
+
         this.voiceChannel = channel;
         this.voiceConnection = await this.voiceChannel.join();
         this.voiceDispatch = undefined;
     }
 
     public play(info: AudioConvertionInfo): void {
+        if (!this.voiceConnection) {
+            return;
+        }
         this.playState = PlayState.Playing;
         this.voiceDispatch = this.voiceConnection.play(info.outStream, { type: 'converted' });
         this.voiceDispatch.on('close', () => this.finished());
@@ -39,7 +42,22 @@ class GuildAudioInfo extends EventEmitter {
         this.audioInfo = info;
     }
 
+    public async leaveChannel(): Promise<void> {
+        if (!this.voiceConnection || !this.voiceChannel) {
+            return;
+        }
+
+        this.voiceConnection.disconnect();
+        this.voiceChannel.leave();
+
+        this.voiceChannel = undefined;
+        this.voiceConnection = undefined;
+        this.voiceDispatch = undefined;
+        this.audioInfo = undefined;
+    }
+
     private finished(): void {
+        this.audioInfo = undefined;
         this.playState = PlayState.Stopped;
         this.emit('finish');
     }

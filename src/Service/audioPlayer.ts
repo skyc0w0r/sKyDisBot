@@ -3,8 +3,10 @@ import Logger from 'log4js';
 import PlayState from '../Enum/PlayState.js';
 import human from '../human.js';
 import AudioYTMessage from '../Model/AudioYTMessage.js';
+import { CommandCallback } from '../Model/CmdParserModels.js';
 import { GuildAudioInfo, GuildAudioInfoCollection } from '../Model/GuildAudioInfo.js';
 import AudioConverter from './AudioConverter.js';
+import CommandParser from './CommandParser.js';
 import YouTubeApi from './YouTubeApi.js';
 
 class AudioPlayer {
@@ -14,105 +16,85 @@ class AudioPlayer {
     private audioConverter: AudioConverter;
 
     private state: GuildAudioInfoCollection;
-    constructor(ds: Discord.Client, ytApi: YouTubeApi, audConv: AudioConverter) {
+    constructor(ds: Discord.Client, parser: CommandParser, ytApi: YouTubeApi, audConv: AudioConverter) {
         this.logger = Logger.getLogger('audio_player');
         this.dsClient = ds;
+        
+        const audioCategory = parser.RegisterCategory('audio', async (t, m, f) => await this.wrapper(t, m, f));
+        audioCategory.RegisterCommand('yt', (t, m) => this.playYTLink(t, m));
+        audioCategory.RegisterCommand(['find', 'search'], (t, m) => this.findAndPlay(t, m));
+        audioCategory.RegisterCommand('skip', (t, m) => this.skip(m));
+        audioCategory.RegisterAlias('p', 'audio yt');
+
         this.youtubeApi = ytApi;
         this.audioConverter = audConv;
 
         this.state = {};
     }
 
-    public async dispatch(msg: Discord.Message): Promise<void> {
+    private async wrapper(text: string, msg: Discord.Message, target: CommandCallback): Promise<void> {
         try {
-            // if (msg.content.startsWith('!audio play')) {
-            //     await this.play(msg);
-            // }
-            if (msg.content.startsWith('!audio yt')) {
-                await this.playYTLink(msg);
+            if (!msg.guild || !msg.member) {
+                return;
             }
-            if (msg.content === '!audio skip') {
-                await this.skip(msg);
-            }
-            if (msg.content.startsWith('!audio find')) {
-                await this.findAndPlay(msg);
-            }
+            await target(text, msg);
         }
         catch (e) {
             await msg.channel.send('Something went wrong, try again later');
-            this.logger.warn('Got error, while ...', e);
+            this.logger.warn(human._s(msg.guild), 'Got error, while processing message', e);
         }
     }
 
     public async shutdown(): Promise<void> {
-        for (const key of Object.keys(this.state)) {
-            const info = this.state[key];
-            if (info.voiceConnection) {
-                info.voiceConnection.disconnect();
-            }
-        }
+        await Promise.all(Object.keys(this.state).map(c => this.state[c].leaveChannel()));
     }
 
-    // private async play(msg: Discord.Message): Promise<void> {
-    //     if (!msg.member?.voice?.channel) {
-    //         await msg.channel.send('Join voice first!');
-    //         return;
-    //     }
-    //     const f = createReadStream('ЮГ 404 - НАЙДИ МЕНЯ (2018).mp3');
-    //     const convertedF = ConvertAudioForDis(f);
-    //     const voice = await msg.member?.voice.channel?.join();
-    //     this.voices.push(voice);
-    //     const dp = voice.play(convertedF, { type: 'converted' });
-    //     dp.on('finish', () => {
-    //         voice.disconnect();
-    //         this.voices = this.voices.filter(c => c !== voice);
-    //     });
-    //     // voice.play('15 - Dropout - Handcrafted.flac');
-    //     // ffmpeg -i "15 - Dropout - Handcrafted.flac" -analyzeduration 0 -loglevel 0 -f s16le -ar 48000 -ac 2 pipe:1
-    // }
-
-    private async playYTLink(msg: Discord.Message): Promise<void> {
+    private async playYTLink(text: string, msg: Discord.Message): Promise<void> {
         if (!msg.member.voice.channel) {
             await msg.channel.send('Join voice first!');
             return;
         }
+        const g = this.getInfo(msg.guild);
+        await g.joinChannel(msg.member.voice.channel);
 
-        const link = tryGetYTLink(msg.content);
+        const link = parseYTLink(text);
         if (!link) {
             await msg.channel.send('Invalid link');
             return;
         }
+        if (link.type === 'playlist') {
+            // enqueue all songs from playlist
+        } else if (link.type === 'video') {
+            // enqueue song by id
+            g.queue.push(new AudioYTMessage(msg, link.vid));
 
-        const g = this.getInfo(msg.guild.id);
-        g.queue.push(new AudioYTMessage(msg, link));
+            this.logger.info(human._s(g.guild), 'Added youtube track to queue');
+            await msg.channel.send('Enqueued 👍');
 
-        this.logger.info('YT added to queue on', msg.guild.id);
-        await msg.channel.send('Enqueued 👍');
-
-        this.playStreamTo(msg.guild.id);
+            this.playStreamTo(msg.guild);
+        }
     }
 
     private async skip(msg: Discord.Message): Promise<void> {
-        const g = this.getInfo(msg.guild.id);
+        const g = this.getInfo(msg.guild);
         if (g.playState !== PlayState.Playing) {
             await msg.channel.send('Nothing playing');
             return;
         }
-        this.destroyPlayer(msg.guild.id);
+        this.destroyPlayer(msg.guild);
         await msg.channel.send('Skipped 👍');
     }
 
-    private async findAndPlay(msg: Discord.Message): Promise<void> {
+    private async findAndPlay(q: string, msg: Discord.Message): Promise<void> {
         if (!msg.member.voice.channel) {
             await msg.channel.send('Join voice first!');
             return;
         }
+        const g = this.getInfo(msg.guild);
 
-        const g = this.getInfo(msg.guild.id);
-
-        const q = msg.content.substring('!audio find '.length);
-        this.logger.info('Searching in', g.Id, 'for', q);
-
+        this.logger.info(human._s(g.guild), 'Searching in for', q);
+        await msg.channel.send(`Searching 🔎 **${q}**`);
+        
         const searchResults = await this.youtubeApi.search(q);
         if (searchResults.length === 0) {
             await msg.channel.send('No results');
@@ -134,7 +116,7 @@ class AudioPlayer {
                         resolve('cancel');
                     }
                     const selectedIndex = parseInt(e.content);
-                    if (selectedIndex >= searchResults.length || selectedIndex <= 0) {
+                    if (selectedIndex > searchResults.length || selectedIndex <= 0) {
                         return;
                     }
                     clearTimeout(tm);
@@ -151,46 +133,46 @@ class AudioPlayer {
         });
         await listMsg.delete();
         if (choice === 'timeout') {
-            this.logger.info('Search timed out for', g.Id);
+            this.logger.info(human._s(g.guild), 'Search timed out');
             await msg.channel.send('Timeount');
             return;
         }
         if (choice === 'cancel') {
-            this.logger.info('Search canceled for', g.Id);
+            this.logger.info(human._s(g.guild), 'Search canceled');
             await msg.channel.send('Canceled');
             return;
         }
         index = parseInt(choice.content) - 1;
         await choice.delete();
 
-        this.logger.info('Selected for guild', g.Id, ':', searchResults[index].Snippet.Title);
+        this.logger.info(human._s(g.guild), 'Selected', human._s(searchResults[index]));
         await msg.channel.send(`Selected #${index+1}: ${searchResults[index].Snippet.Title}`);
 
         g.queue.push(new AudioYTMessage(msg, searchResults[index].Id));
         await msg.channel.send('Enqueued 👍');
 
-        this.playStreamTo(msg.guild.id);
+        this.playStreamTo(msg.guild);
     }
 
-    private destroyPlayer(guildId: string): void {
+    private destroyPlayer(guild: Discord.Guild): void {
         try {    
-            const g = this.getInfo(guildId);
+            const g = this.getInfo(guild);
             if (g.playState !== PlayState.Playing) {
                 // not playing anything
                 return;
             }
 
-            this.logger.debug('Destroying player', guildId);
+            this.logger.debug(human._s(guild), 'Destroying player');
             this.audioConverter.abortConvertion(g.audioInfo);
             g.voiceDispatch.destroy();
         } catch (e) {
-            this.logger.error('Failed to destroy player in', guildId, e);
+            this.logger.error(human._s(guild), 'Failed to destroy player in', e);
         }
     }
 
-    private async playStreamTo(guildId: string): Promise<void> {
+    private async playStreamTo(guild: Discord.Guild): Promise<void> {
         try {
-            const g = this.getInfo(guildId);
+            const g = this.getInfo(guild);
             // if we are not already playting
             if (g.playState !== PlayState.Stopped) {
                 return;
@@ -200,19 +182,19 @@ class AudioPlayer {
                 return;
             }
     
-            this.logger.info('Preparing new track for', guildId);
+            this.logger.info(human._s(guild), 'Preparing new track');
             const audio = g.queue.shift();
 
             // if the bot was playing in another channel
-            await g.joinChannel(audio.msg.member.voice.channel);
+            await g.joinChannel(audio?.msg.member?.voice.channel);
     
             if (audio instanceof AudioYTMessage) {
-                this.logger.info('Playing', audio.videoId, 'to', guildId);
+                this.logger.info(human._s(guild), 'Playing', audio.videoId);
                 
                 const stream = this.youtubeApi.getAudioStream(audio.videoId);
                 const info = this.audioConverter.convertForDis(stream);
                 info.outStream.on('error', (e: Error) => {
-                    this.destroyPlayer(guildId);
+                    this.destroyPlayer(guild);
                     this.notifyError(audio.msg, e);
                 });
 
@@ -220,7 +202,7 @@ class AudioPlayer {
             }
         }
         catch (err) {
-            this.logger.warn('Failed to play in', guildId);
+            this.logger.warn(human._s(guild), 'Failed to play');
         }
     }
 
@@ -232,22 +214,45 @@ class AudioPlayer {
         }
     }
 
-    private getInfo(id: string): GuildAudioInfo | null {
-        if(!this.state[id]) {
-            this.state[id] = new GuildAudioInfo(id);
-            this.state[id].on('finish', () => this.playStreamTo(id));
+    private getInfo(guild: Discord.Guild): GuildAudioInfo {
+        if(!this.state[guild.id]) {
+            this.state[guild.id] = new GuildAudioInfo(guild);
+            this.state[guild.id].on('finish', () => this.playStreamTo(guild));
         }
-        return this.state[id];
+        return this.state[guild.id];
     }
 }
 
-const ytreg = new RegExp('.*(https?://)?(www.)?(youtube\\.com/watch\\?v=|youtu\\.be/)(?<link>[^?&]+)');
-function tryGetYTLink(text: string): string | null {
-    const ytregres = ytreg.exec(text);
-    if (ytregres && ytregres.groups && ytregres.groups['link']) {
-        return ytregres.groups['link'];
+function parseYTLink(text: string): YTLinkType | null {
+    let list: string | null = null;
+    let vid: string | null = null;
+    try {
+        const u = new URL(text);
+        if (u.hostname === 'www.youtube.com' || u.hostname === 'youtube.com') {
+            list = u.searchParams.get('list');
+            vid = u.searchParams.get('v');
+        }
+        else if (u.hostname === 'youtu.be') {
+            list = u.searchParams.get('list');
+            vid = u.pathname.substring(1);
+        }
+    } catch {
+        // whatever
+    }
+    if (vid) {
+        return {
+            type: list && 'playlist' || 'video',
+            list,
+            vid,
+        };
     }
     return null;
+}
+
+interface YTLinkType {
+    type: 'video' | 'playlist'
+    list: string | null
+    vid: string
 }
 
 export default AudioPlayer;
