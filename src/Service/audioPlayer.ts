@@ -25,6 +25,7 @@ class AudioPlayer {
         audioCategory.RegisterCommand(['find', 'search'], (t, m) => this.findAndPlay(t, m));
         audioCategory.RegisterCommand('skip', (t, m) => this.skip(m));
         audioCategory.RegisterAlias('p', 'audio yt');
+        audioCategory.RegisterAlias('s', 'audio skip');
 
         this.youtubeApi = ytApi;
         this.audioConverter = audConv;
@@ -109,15 +110,14 @@ class AudioPlayer {
         text += '```';
         const listMsg = await msg.channel.send(text);
 
-        const choice = await new Promise<Discord.Message | 'timeout' | 'cancel'>((resolve) => {
+        const choice = await new Promise<Discord.Message | 'timeout'>((resolve) => {
             const promtSelector = (e: Discord.Message): void => {
                 if (e.channel.id === msg.channel.id && e.member.id === msg.member.id) {
-                    if (msg.content === 'cancel') {
-                        resolve('cancel');
-                    }
-                    const selectedIndex = parseInt(e.content);
-                    if (selectedIndex > searchResults.length || selectedIndex <= 0) {
-                        return;
+                    if (e.content.toLowerCase() !== 'cancel') {
+                        const selectedIndex = parseInt(e.content);
+                        if (selectedIndex > searchResults.length || selectedIndex <= 0) {
+                            return;
+                        }
                     }
                     clearTimeout(tm);
                     this.dsClient.removeListener('message', promtSelector);
@@ -137,13 +137,14 @@ class AudioPlayer {
             await msg.channel.send('Timeount');
             return;
         }
-        if (choice === 'cancel') {
+        if (choice.content.toLowerCase() === 'cancel') {
+            await choice.delete();
             this.logger.info(human._s(g.guild), 'Search canceled');
             await msg.channel.send('Canceled');
             return;
         }
-        index = parseInt(choice.content) - 1;
         await choice.delete();
+        index = parseInt(choice.content) - 1;
 
         this.logger.info(human._s(g.guild), 'Selected', human._s(searchResults[index]));
         await msg.channel.send(`Selected #${index+1}: ${searchResults[index].Snippet.Title}`);
@@ -179,6 +180,7 @@ class AudioPlayer {
             }
             // if not queue empty
             if (g.queue.length === 0) {
+                this.logger.info(human._s(guild), 'Finished queue');
                 return;
             }
     
@@ -186,7 +188,7 @@ class AudioPlayer {
             const audio = g.queue.shift();
 
             // if the bot was playing in another channel
-            await g.joinChannel(audio?.msg.member?.voice.channel);
+            await g.joinChannel(audio.msg.member.voice.channel);
     
             if (audio instanceof AudioYTMessage) {
                 this.logger.info(human._s(guild), 'Playing', audio.videoId);
