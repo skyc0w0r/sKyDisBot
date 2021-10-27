@@ -5,6 +5,8 @@ interface Config {
     DIS_TOKEN: string
     LOG_CONFIG: string
     YT_DATA_TOKEN: string
+    BOT_CLIENT_ID: string
+    TEST_GUILD_ID: string
 }
 
 const PLACEHOLDER = '[change_me]';
@@ -12,6 +14,8 @@ const DefaultConfig: Config = {
     DIS_TOKEN: PLACEHOLDER,
     LOG_CONFIG: 'log4js.default.json',
     YT_DATA_TOKEN: PLACEHOLDER,
+    BOT_CLIENT_ID: PLACEHOLDER,
+    TEST_GUILD_ID: PLACEHOLDER,
 };
 const configPath = join(process.cwd(), 'config.json');
 let CurrentConfig: Config | undefined = undefined;

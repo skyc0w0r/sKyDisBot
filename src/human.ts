@@ -1,6 +1,4 @@
 import Discord from 'discord.js';
-import Video from './Model/YouTube/Video.js';
-import CommandParser from './Service/CommandParser.js';
 
 function time(seconds: number): string {
     const s = seconds % 60;
@@ -32,23 +30,20 @@ function date(date: Date): string {
     return `${y}-${m}-${d}`;
 }
 
-function _s(o: unknown): string {
+function _s<T = unknown>(o: T): string {
     if (o instanceof Discord.Guild) {
         return `[${o.id}|${o.name}]`;
     }
-    if (o instanceof Video) {
-        return `[${o.Id}|${time(o.ContentDetails.Duration)}|${o.Snippet.Title}]`;
+    if (o instanceof Discord.Interaction) {
+        return `[${o.type}|${_s(o.user)}@${_s(o.channel)}]`;
     }
-    if (o instanceof CommandParser) {
-        let res = o.Name;
-        let pt = o.Parent;
-        while (pt) {
-            res = `${pt.Name}/${res}`;
-            pt = pt.Parent;
-        }
-        return `[${res}]`;
+    if (o instanceof Discord.User) {
+        return `[${o.id}|${o.username}]`;
     }
-    return '';
+    if (o instanceof Discord.TextChannel) {
+        return `[${o.id}|${o.name}]`;
+    }
+    return '[type ???]';
 }
 
 export default {
