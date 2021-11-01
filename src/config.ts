@@ -7,6 +7,7 @@ interface Config {
     YT_DATA_TOKEN: string
     BOT_CLIENT_ID: string
     TEST_GUILD_ID: string
+    COMMAND_PREFIX: string
 }
 
 const PLACEHOLDER = '[change_me]';
@@ -16,6 +17,7 @@ const DefaultConfig: Config = {
     YT_DATA_TOKEN: PLACEHOLDER,
     BOT_CLIENT_ID: PLACEHOLDER,
     TEST_GUILD_ID: PLACEHOLDER,
+    COMMAND_PREFIX: '!',
 };
 const configPath = join(process.cwd(), 'config.json');
 let CurrentConfig: Config | undefined = undefined;

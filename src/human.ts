@@ -1,4 +1,5 @@
 import Discord from 'discord.js';
+import CommandParserService from './Service/CommandParserService.js';
 
 function time(seconds: number): string {
     const s = seconds % 60;
@@ -34,14 +35,32 @@ function _s<T = unknown>(o: T): string {
     if (o instanceof Discord.Guild) {
         return `[${o.id}|${o.name}]`;
     }
+    if (o instanceof Discord.GuildMember) {
+        return `[${o.id}|${o.nickname}]`;
+    }
     if (o instanceof Discord.Interaction) {
-        return `[${o.type}|${_s(o.user)}@${_s(o.channel)}]`;
+        return `[${o.type} by ${_s(o.member)} at ${_s(o.channel)}]`;
     }
     if (o instanceof Discord.User) {
         return `[${o.id}|${o.username}]`;
     }
     if (o instanceof Discord.TextChannel) {
         return `[${o.id}|${o.name}]`;
+    }
+    if (o instanceof Discord.Message) {
+        return `[${_s(o.member)} at ${_s(o.channel)} wrote ${o.id}|${o.content}]`;
+    }
+    if (o instanceof CommandParserService) {
+        if (!o.Name) {
+            return '[/]';
+        }
+        let res = o.Name;
+        let pt = o.Parent;
+        while (pt) {
+            res = `${pt.Name}/${res}`;
+            pt = pt.Parent;
+        }
+        return `[${res}]`;
     }
     return '[type ???]';
 }
