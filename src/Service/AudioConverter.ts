@@ -7,12 +7,14 @@ import AudioConvertionInfo from '../Model/AudioConverter/AudioConvertionInfo.js'
 class AudioConverter extends BaseService {
     private logger: Logger.Logger;
     private ffmpegCmd: string | undefined;
+    private inProgress: AudioConvertionInfo[];
     constructor() {
         super();
         this.logger = Logger.getLogger('audio_converter');
+        this.inProgress = [];
     }
 
-    public init(): Promise<void> {
+    public Init(): Promise<void> {
         for (const command of ['ffmpeg', 'avconv', './ffmpeg', './avconv', 'ffmpeg.exe', './ffmpeg.exe']) {
             if (!spawnSync(command, ['-h']).error) {
                 this.ffmpegCmd = command;
@@ -25,6 +27,12 @@ class AudioConverter extends BaseService {
         }
         return Promise.resolve();
     }
+    public Destroy(): void {
+        for (const info of this.inProgress) {
+            this.abortConvertion(info);
+        }
+    }
+    
 
     public convertForDis(sourceStream: Readable): AudioConvertionInfo {
         if (!this.convertForDis) {
@@ -68,6 +76,7 @@ class AudioConverter extends BaseService {
         sourceStream.pipe(child.stdin);
         child.stdout.pipe(pt);
 
+        this.inProgress.push(res);
         return res;
     }
 
@@ -78,6 +87,8 @@ class AudioConverter extends BaseService {
         if (!info.proc.killed) {
             info.proc.kill('SIGKILL');
         }
+
+        this.inProgress = this.inProgress.filter(c => c !== info);
     }
 }
 

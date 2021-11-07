@@ -7,6 +7,14 @@ class ServiceManager {
         this.services = [];
     }
 
+    public async Init(): Promise<void> {
+        await Promise.all(this.services.map(c => c.Init()));
+    }
+
+    public async Destroy(): Promise<void> {
+        await Promise.all(this.services.map(c => c.Destroy()));
+    }
+
     public AddService<T extends BaseService>(target: Constructable<T>, instance: T): ServiceManager {
         if (this.GetService(target)) {
             throw new Error(`This type is already registered: ${typeof(target)}`);

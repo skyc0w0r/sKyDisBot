@@ -3,6 +3,7 @@ import Logger from 'log4js';
 import human from '../human.js';
 import { AliasCollection, CategoryCollection, CategoryWrapper, CommandCallback, CommandCollection, CommandParserServiceOptions } from '../Interface/CommandParserInterface.js';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
+import { CommandCreationOptions, CommandParamCollection } from '../Model/CommandParser/CommandOption.js';
 import { BaseCommand, InteractionCommand, MessageCommand, RegisteredCommand } from '../Model/CommandParser/index.js';
 
 /**
@@ -18,8 +19,17 @@ class CommandParserService extends BaseService {
     public get Name(): string {
         return this.name;
     }
+    public get FullName(): string {
+        if (this.Parent) {
+            return `${this.Parent.FullName}/${this.Name}`;
+        }
+        return this.Name;
+    }
     public get Parent(): CommandParserService | undefined {
         return this.parent;
+    }
+    public get GrandParent(): CommandParserService {
+        return this.parent ? this.parent.GrandParent : this;
     }
 
     private commands: CommandCollection;
@@ -29,9 +39,10 @@ class CommandParserService extends BaseService {
     private wrapper: CategoryWrapper;
     private parent: CommandParserService | undefined;
     private name: string;
+    private description: string;
 
     private logger: Logger.Logger;
-    constructor({ prefix, wrapper }: CommandParserServiceOptions = {}) {
+    constructor({ prefix, wrapper, description }: CommandParserServiceOptions = {}) {
         super();
         this.commands = {};
         this.categories = {};
@@ -39,9 +50,18 @@ class CommandParserService extends BaseService {
         this.prefix = prefix;
         this.wrapper = wrapper;
         this.name = '';
+        this.description = description || 'No description provided';
 
         this.logger = Logger.getLogger('command_parser');
     }
+
+    public Init(): void {
+        return;
+    }
+    public Destroy(): void {
+        return;
+    }
+    
 
     public async Dispatch(creator: Discord.Message | Discord.Interaction): Promise<void> {
         if (creator instanceof Discord.Message) {
@@ -56,6 +76,7 @@ class CommandParserService extends BaseService {
             if (!creator.isCommand()) {
                 return;
             }
+            await creator.deferReply();
             this.logger.info('+', human._s(creator));
 
             const tokens = [
@@ -73,10 +94,10 @@ class CommandParserService extends BaseService {
      * @param callback it should proccess command
      * @returns 
      */
-    public RegisterCommand(name: string | string[], callback: CommandCallback): CommandParserService {
+    public RegisterCommand(name: string | string[], callback: CommandCallback, options?: CommandCreationOptions): CommandParserService {
         if (Array.isArray(name)) {
             for (const n of name) {
-                this.RegisterCommand(n, callback);
+                this.RegisterCommand(n, callback, options);
             }
             return this;
         }
@@ -85,7 +106,8 @@ class CommandParserService extends BaseService {
         this.commands[name] = new RegisteredCommand({
             parser: this,
             name,
-            callback
+            callback,
+            opts: options
         });
 
         return this;
@@ -97,9 +119,9 @@ class CommandParserService extends BaseService {
      * @param wrapper decorator for the target command (put checks and try/catch there)
      * @returns 
      */
-    public RegisterCategory(name: string, wrapper: CategoryWrapper | undefined = undefined): CommandParserService {
+    public RegisterCategory(name: string, wrapper: CategoryWrapper | undefined = undefined, description: string | undefined = undefined): CommandParserService {
         this.logger.debug(human._s(this), '+>>', name);
-        const category = new CommandParserService({wrapper});
+        const category = new CommandParserService({wrapper, description});
         category.parent = this;
         category.name = name;
         this.categories[name] = category; 
@@ -173,14 +195,42 @@ class CommandParserService extends BaseService {
                 parserCommands.push({
                     ...based,
                     name: cmd.Name,
-                    description: 'cmd <blank>'
+                    description: cmd.Description,
+                    options: cmd.Arguments?.map(c => {
+                        return {
+                            name: c.id,
+                            description: c.description,
+                            required: c.required,
+                            type: 3,
+                            choices: c.choices?.map(e => {
+                                return {
+                                    name: e,
+                                    value: e,
+                                };
+                            })
+                        };
+                    })
                 });
             }
             for (const cmd of Object.keys(parser.aliases).map(c => parser.aliases[c])) {
                 parserCommands.push({
                     ...based,
                     name: cmd.name,
-                    description: 'alias <blank>',
+                    description: `alias: ${cmd.name} -> ${cmd.command.FullName}`,
+                    options: cmd.command.Arguments?.map(c => {
+                        return {
+                            name: c.id,
+                            description: c.description,
+                            required: c.required,
+                            type: 3,
+                            choices: c.choices?.map(e => {
+                                return {
+                                    name: e,
+                                    value: e,
+                                };
+                            })
+                        };
+                    })
                 });
             }
             return parserCommands;
@@ -195,14 +245,14 @@ class CommandParserService extends BaseService {
                 opts.push({
                     type: 2,
                     name: subSubCategory.Name,
-                    description: 'grp <blank>',
+                    description: this.description,
                     options: getParserCommands({type: 1}, subSubCategory) as unknown as Discord.ApplicationCommandSubCommandData[]
                 });
             }
             res.push({
                 type: 1,
                 name: subCategory.Name,
-                description: 'cat <blank>',
+                description: this.description,
                 options: opts,
             });
         }
@@ -226,36 +276,16 @@ class CommandParserService extends BaseService {
         }
 
         const cmd = tokens.shift();
-        let command: BaseCommand;
-
-        if (creator instanceof Discord.Message) {
-            command = new MessageCommand({
-                user: creator.member,
-                channel: creator.channel,
-                message: creator
-            });
-        } else if (creator instanceof Discord.CommandInteraction) {
-            // not supported (yet?)
-            if (!(creator.member instanceof Discord.GuildMember)) {
-                return;
-            }
-
-            command = new InteractionCommand({
-                user: creator.member,
-                channel: creator.channel,
-                interaction: creator,
-            });
-        }
 
         if (this.aliases[cmd]) {
             this.logger.debug(human._s(this), '}', cmd);
-            await this.aliases[cmd].command.Parser.execute(cmd, command);
+            await this.aliases[cmd].command.Parser.execute(cmd, this.validateCommand(creator, this.aliases[cmd].command));
         } else if (this.categories[cmd]) {
             this.logger.debug(human._s(this), '>>', cmd);
             await this.categories[cmd].DispatchInner(tokens, creator);
         } else if (this.commands[cmd]) {
             this.logger.debug(human._s(this), '>', cmd);
-            await this.execute(cmd, command);
+            await this.execute(cmd, this.validateCommand(creator, this.commands[cmd]));
         }
     }
 
@@ -266,11 +296,122 @@ class CommandParserService extends BaseService {
      * @param original original message
      */
     private async execute(cmd: string, creator: BaseCommand): Promise<void> {
+        if (!creator) {
+            return;
+        }
+
         if (this.wrapper) {
             await this.wrapper(creator, this.commands[cmd].Callback);
         } else {
             await this.commands[cmd].Callback(creator);
         }
+    }
+
+    private validateCommand(creator: Discord.Message | Discord.CommandInteraction, command: RegisteredCommand): BaseCommand | undefined {        
+        let res: BaseCommand;
+        const cmdParams: CommandParamCollection = {};
+
+        if (creator instanceof Discord.Message) {
+            let text = creator.content;
+            text = text.replace(/\s+/g, ' ');
+            text = text.substring(this.GrandParent.prefix.length + command.FullName.length);
+
+            const nextToken = (s: string): [string, string] => {
+                if (!s) {
+                    return ['', ''];
+                }
+                s = s.replace(/^\s/, '');
+                if (s.charAt(0) === '"') {
+                    const end = s.indexOf('"', 1);
+                    if (end === -1) {
+                        throw new Error('No closing "');
+                    }
+                    return [s.substring(1, end), s.substring(end+1)];
+                } else if (s.charAt(0) === '\'') {
+                    const end = s.indexOf('\'', 1);
+                    if (end === -1) {
+                        throw new Error('No closing \'');
+                    }
+                    return [s.substring(1, end), s.substring(end+1)];
+                }
+                const end = s.indexOf(' ');
+                if (end === -1) {
+                    return [s, ''];
+                }
+                return [s.substring(0, end), s.substring(end+1)];
+            };
+
+            for (const opt of command.Arguments) {
+                let val = undefined;
+                try {
+                    [val, text] = nextToken(text);
+                } catch (e) {
+                    creator.channel.send({content: `Invalid command: ${(e as Error).message}`});
+                    return undefined;
+                }
+                if (val) {
+                    if (opt.choices) {
+                        if (!opt.choices.some(c => c === val)) {
+                            creator.channel.send({content: `Invalid argument value, valid are:[${opt.choices.join(', ')}]`});
+                            return undefined;
+                        }
+                    }
+                    cmdParams[opt.id] = {
+                        id: opt.id,
+                        value: val,
+                    };
+                } else if (opt.required) {
+                    if (opt.default) {
+                        cmdParams[opt.id] = {
+                            id: opt.id,
+                            value: opt.default
+                        };
+                    } else {
+                        creator.channel.send({content: `Missing argument ${opt.id}`});
+                        return undefined;
+                    }
+                }
+            }
+
+            res = new MessageCommand({
+                user: creator.member,
+                message: creator,
+                params: cmdParams,
+            });
+        } else if (creator instanceof Discord.CommandInteraction) {
+            // not supported (yet?)
+            if (!(creator.member instanceof Discord.GuildMember)) {
+                return undefined;
+            }
+
+            for (const opt of command.Arguments) {
+                const val = creator.options.getString(opt.id, false);
+                if (val) {
+                    cmdParams[opt.id] = {
+                        id: opt.id,
+                        value: val,
+                    };
+                } else if (opt.required) {
+                    if (opt.default) {
+                        cmdParams[opt.id] = {
+                            id: opt.id,
+                            value: opt.default
+                        };
+                    } else {
+                        creator.reply({content: `Missing argument ${opt.id}`});
+                        return undefined;
+                    }
+                }
+            }
+
+            res = new InteractionCommand({
+                user: creator.member,
+                interaction: creator,
+                params: cmdParams,
+            });
+        }
+
+        return res;
     }
 
     private checkRegistered(name: string): boolean {

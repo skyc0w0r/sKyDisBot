@@ -1,10 +1,12 @@
 import Discord from 'discord.js';
+import { CommandParamCollection } from '../Model/CommandParser/CommandOption.js';
 import { BaseCommand, RegisteredCommand } from '../Model/CommandParser/index.js';
 import CommandParser from '../Service/CommandParserService.js';
 
 export type CommandParserServiceOptions = {
     prefix?: string
     wrapper?: CategoryWrapper
+    description?: string
 };
 
 export type CommandCallback = (cmd: BaseCommand) => void | Promise<void>;
@@ -26,7 +28,7 @@ export interface AliasCollection {
 
 export interface BaseCommandData {
     user: Discord.GuildMember
-    channel: Discord.TextBasedChannels
+    params: CommandParamCollection
 }
 
 export interface MessageCommandData extends BaseCommandData {

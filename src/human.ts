@@ -50,17 +50,11 @@ function _s<T = unknown>(o: T): string {
     if (o instanceof Discord.Message) {
         return `[${_s(o.member)} at ${_s(o.channel)} wrote ${o.id}|${o.content}]`;
     }
+    if (o instanceof Discord.VoiceChannel) {
+        return `[${o.id}|${o.name}]`;
+    }
     if (o instanceof CommandParserService) {
-        if (!o.Name) {
-            return '[/]';
-        }
-        let res = o.Name;
-        let pt = o.Parent;
-        while (pt) {
-            res = `${pt.Name}/${res}`;
-            pt = pt.Parent;
-        }
-        return `[${res}]`;
+        return `[${o.FullName}]`;
     }
     return '[type ???]';
 }

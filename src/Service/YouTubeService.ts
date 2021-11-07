@@ -18,6 +18,14 @@ class YouTubeService extends BaseService {
         this.logger = Logger.getLogger('youtube');
     }
 
+    public Init(): void {
+        return;
+    }
+    public Destroy(): void {
+        return;
+    }
+    
+
     public async getVideoInfo(id: string): Promise<Video | null> {
         const r = await this.getData('videos', VideosResponse, {
             part: 'contentDetails,snippet',
@@ -76,6 +84,11 @@ class YouTubeService extends BaseService {
                     watchIt(len, retry + 1);
                 }
                 resolve();
+            });
+            pt.on('close', () => {
+                if (src) {
+                    src.destroy();
+                }
             });
         });
         watchIt();
