@@ -1,8 +1,11 @@
+import fetch from 'node-fetch';
 import Logger from 'log4js';
 import { PassThrough, Readable } from 'stream';
 import ytdl from 'ytdl-core';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import RequestParamCollection from '../Model/General/RequestParamCollection.js';
+import PlaylistItem from '../Model/YouTube/PlaylistItem.js';
+import PlaylistItemListResponse from '../Model/YouTube/PlaylistItemListResponse.js';
 import SearchResponse from '../Model/YouTube/SearchResponse.js';
 import Video from '../Model/YouTube/Video.js';
 import VideosResponse from '../Model/YouTube/VideosResponse.js';
@@ -28,7 +31,7 @@ class YouTubeService extends BaseService {
 
     public async getVideoInfo(id: string): Promise<Video | null> {
         const r = await this.getData('videos', VideosResponse, {
-            part: 'contentDetails,snippet',
+            part: 'id,contentDetails,snippet',
             id
         });
         return r.Items.length > 0 ? r.Items[0] : null;
@@ -45,6 +48,37 @@ class YouTubeService extends BaseService {
             part: 'id,contentDetails,snippet',
             id: r1.Items.map(c => c.Id).join(','),
         });
+        return r2.Items;
+    }
+
+    public async getPlaylist(id: string): Promise<Array<Video>> {
+        const items = new Array<PlaylistItem>();
+        let nextPageToken;
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            const r1params: RequestParamCollection = {
+                part: 'id,snippet',
+                maxResults: 50,
+                playlistId: id,
+            };
+            if (nextPageToken) {
+                r1params['pageToken'] = nextPageToken;
+            }
+            const r1 = await this.getData('playlistItems', PlaylistItemListResponse, r1params);
+            items.push(...r1.Items);
+
+            nextPageToken = r1.NextPageToken;
+            if (!nextPageToken) {
+                break;
+            }
+        }
+        
+        const r2 = await this.getData('videos', VideosResponse, {
+            part: 'id,contentDetails,snippet',
+            id: items.map(c => c.Snippet.ResourceId).join(','),
+        });
+
         return r2.Items;
     }
 

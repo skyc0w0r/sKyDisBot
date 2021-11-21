@@ -1,13 +1,14 @@
 import { Readable } from 'stream';
-import AudioTrack from './AudioTrack.js';
+import { AudioTrack } from './index.js';
 
-class TestTrack extends AudioTrack {
-    public Stream: Readable;
+export class TestTrack extends AudioTrack {
+    public f: () => Readable;
+    public CreateReadable(): Readable {
+        throw new Error('Method not implemented.');
+    }
 
-    constructor(s: Readable) {
+    constructor(f: () => Readable) {
         super();
-        this.Stream = s;
+        this.f = f;
     }
 }
-
-export default TestTrack;

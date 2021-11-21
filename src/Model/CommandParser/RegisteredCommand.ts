@@ -6,7 +6,7 @@ export class RegisteredCommand {
     public Parser: CommandParserService;
     public Name: string;
     public get FullName(): string {
-        return `${this.Parser.FullName}/${this.Name}`;
+        return `${this.Parser.FullName}${this.Name}`;
     }
     public Callback: CommandCallback;
     public Description: string;

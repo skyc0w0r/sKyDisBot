@@ -1,7 +1,7 @@
 import Discord from 'discord.js';
 import Logger from 'log4js';
 import human from '../human.js';
-import { AliasCollection, CategoryCollection, CategoryWrapper, CommandCallback, CommandCollection, CommandParserServiceOptions } from '../Interface/CommandParserInterface.js';
+import { AliasCollection, CategoryCollection, CategoryWrapper, CommandAlias, CommandCallback, CommandCollection, CommandParserServiceOptions } from '../Interface/CommandParserInterface.js';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import { CommandCreationOptions, CommandParamCollection } from '../Model/CommandParser/CommandOption.js';
 import { BaseCommand, InteractionCommand, MessageCommand, RegisteredCommand } from '../Model/CommandParser/index.js';
@@ -21,7 +21,7 @@ class CommandParserService extends BaseService {
     }
     public get FullName(): string {
         if (this.Parent) {
-            return `${this.Parent.FullName}/${this.Name}`;
+            return `${this.Parent.FullName}${this.Name}/`;
         }
         return this.Name;
     }
@@ -49,7 +49,7 @@ class CommandParserService extends BaseService {
         this.aliases = {};
         this.prefix = prefix;
         this.wrapper = wrapper;
-        this.name = '';
+        this.name = '/';
         this.description = description || 'No description provided';
 
         this.logger = Logger.getLogger('command_parser');
@@ -129,7 +129,7 @@ class CommandParserService extends BaseService {
     }
 
     /**
-     * Adds command alias to the root parent of category 
+     * Adds command alias
      * @param from new command
      * @param to already registered command
      */
@@ -176,7 +176,7 @@ class CommandParserService extends BaseService {
         }
 
         catFrom.aliases[fromName] = {
-            name: toName,
+            name: fromName,
             command: catTo.commands[toName],
         };
         this.logger.debug('Added alias', from, '->', to);
@@ -277,15 +277,19 @@ class CommandParserService extends BaseService {
 
         const cmd = tokens.shift();
 
-        if (this.aliases[cmd]) {
+        const aliasCmd = this.aliases[cmd];
+        const catCmd = this.categories[cmd];
+        const cmdCmd = this.commands[cmd];
+
+        if (aliasCmd) {
             this.logger.debug(human._s(this), '}', cmd);
-            await this.aliases[cmd].command.Parser.execute(cmd, this.validateCommand(creator, this.aliases[cmd].command));
-        } else if (this.categories[cmd]) {
+            await aliasCmd.command.Parser.execute(aliasCmd.command.Name, this.validateCommand(creator, aliasCmd.command, aliasCmd));
+        } else if (catCmd) {
             this.logger.debug(human._s(this), '>>', cmd);
-            await this.categories[cmd].DispatchInner(tokens, creator);
-        } else if (this.commands[cmd]) {
+            await catCmd.DispatchInner(tokens, creator);
+        } else if (cmdCmd) {
             this.logger.debug(human._s(this), '>', cmd);
-            await this.execute(cmd, this.validateCommand(creator, this.commands[cmd]));
+            await this.execute(cmdCmd.Name, this.validateCommand(creator, cmdCmd));
         }
     }
 
@@ -307,14 +311,15 @@ class CommandParserService extends BaseService {
         }
     }
 
-    private validateCommand(creator: Discord.Message | Discord.CommandInteraction, command: RegisteredCommand): BaseCommand | undefined {        
+    private validateCommand(creator: Discord.Message | Discord.CommandInteraction, command: RegisteredCommand, commandAlias?: CommandAlias): BaseCommand | undefined {        
         let res: BaseCommand;
         const cmdParams: CommandParamCollection = {};
 
         if (creator instanceof Discord.Message) {
             let text = creator.content;
+            // text = text.split(/s+/g).filter((c, i) => i >= commandAlias?.)
             text = text.replace(/\s+/g, ' ');
-            text = text.substring(this.GrandParent.prefix.length + command.FullName.length);
+            text = text.substring(this.GrandParent.prefix.length + (commandAlias?.name.length ?? command.FullName.length));
 
             const nextToken = (s: string): [string, string] => {
                 if (!s) {

@@ -8,6 +8,7 @@ class VideoSnippet {
     public Description: string;
     public Thumbnails: { [key: string]: Thumbnail };
     public ChannelTitle: string;
+    public ResourceId: string;
 
     constructor(obj?: unknown) {
         this.PublishedAt = obj && obj['publishedAt'] && new Date(obj['publishedAt']) || null;
@@ -20,6 +21,8 @@ class VideoSnippet {
             }
         }
         this.ChannelTitle = obj && obj['channelTitle'] || '';
+
+        this.ResourceId = obj && obj['resourceId'] && obj['resourceId']['videoId'] || '';
     }
 
     get bestThumbnail(): Thumbnail {

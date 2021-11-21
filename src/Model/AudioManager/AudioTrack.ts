@@ -1,9 +1,14 @@
 import { Readable } from 'stream';
+import { YouTubeTrack } from './index.js';
 
-abstract class AudioTrack {
-    public abstract get Stream(): Readable;
+export abstract class AudioTrack {
+    public abstract CreateReadable(): Readable;
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     public Cleanup(): void { };
-}
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    public Abort(): void { };
 
-export default AudioTrack;
+    public isYouTubeTrack(): this is YouTubeTrack {
+        return this instanceof YouTubeTrack;
+    }
+}

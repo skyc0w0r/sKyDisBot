@@ -1,19 +1,19 @@
-import Discord, { Interaction } from 'discord.js';
-import DSVoice from '@discordjs/voice';
+import Discord from 'discord.js';
+import { createReadStream } from 'fs';
+import Logger from 'log4js';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import { BaseCommand } from '../Model/CommandParser/index.js';
 import CommandParserService from './CommandParserService.js';
 import { GlobalServiceManager } from './ServiceManager.js';
-import { createReadStream } from 'fs';
 import AudioConverter from './AudioConverter.js';
-import Logger from 'log4js';
 import YouTubeService from './YouTubeService.js';
 import { GuildAudioPlayerCollection } from '../Model/AudioManager/GuildAudioPlayerCollection.js';
 import GuildAudioPlayer from '../Class/GuildAudioPlayer.js';
-import TestTrack from '../Model/AudioManager/TestTrack.js';
 import { CommandCallback } from '../Interface/CommandParserInterface.js';
 import human from '../human.js';
-import YouTubeTrack from '../Model/AudioManager/YouTubeTrack.js';
+import AudioConvertionInfo from '../Model/AudioConverter/AudioConvertionInfo.js';
+import Video from '../Model/YouTube/Video.js';
+import { TestTrack, YouTubeTrack } from '../Model/AudioManager/index.js';
 
 class AudioManagerService extends BaseService {
     private audioConverter: AudioConverter;
@@ -51,6 +51,12 @@ class AudioManagerService extends BaseService {
             ]
         });
         cp.RegisterCommand('leave', (c) => this.leave(c), {description: 'leave voice'});
+        cp.RegisterCommand('skip', (c) => this.skip(c), {description: 'Skips current playing track'});
+        cp.RegisterCommand('np', (c) => this.currentPlaying(c), {description: 'Shows currently playing track'});
+        cp.RegisterCommand('queue', (c) => this.printQueue(c), {description: 'Shows track queue'});
+        cp.RegisterAlias('p', 'audio play');
+        cp.RegisterAlias('s', 'audio skip');
+        cp.RegisterAlias('q', 'audio queue');
     }
     public Destroy(): void {
         Object.keys(this.players).map(c => this.players[c].leaveVoice());
@@ -85,7 +91,7 @@ class AudioManagerService extends BaseService {
         const cs = this.audioConverter.convertForDis(s);
         const p = this.getGuildPlayer(cmd.Guild);
         await p.joinVoice(cmd.User.voice.channel as Discord.VoiceChannel);
-        p.enqueue(new TestTrack(cs.outStream));
+        p.enqueue(new TestTrack(() => cs.outStream));
 
         await cmd.reply({content: 'Enqueued 👍'});
     }
@@ -98,44 +104,127 @@ class AudioManagerService extends BaseService {
         const p = this.getGuildPlayer(cmd.Guild);
         await p.joinVoice(cmd.User.voice.channel as Discord.VoiceChannel);
 
+        const createYTReadable = (video: Video): YouTubeTrack => {
+            let info: AudioConvertionInfo;
+            const errHandler = (e: Error) => {
+                this.logger.warn('Track fail', e.name, e.message);
+                this.notifyError(cmd, e);
+            };
+            return new YouTubeTrack(video, () => {
+                const stream = this.youtube.getAudioStream(video.Id);
+                info = this.audioConverter.convertForDis(stream);
+                info.outStream.on('error', errHandler);
+                return info.outStream;
+            }, () => {
+                if (info) {
+                    this.audioConverter.abortConvertion(info);
+                }
+            }, () => {
+                if (info) {
+                    info.outStream.removeListener('error', errHandler);
+                }
+            });
+        };
+
         const link = parseYTLink(cmd.Params['link'].value);
-        if (!link) {
+        if (!link || link.type === 'invalid') {
             await cmd.reply({content: 'Invalid link'});
             return;
         }
         if (link.type === 'playlist') {
             // enqueue all songs from playlist
+            const items = await this.youtube.getPlaylist(link.list);
+            for (const vid of items) {
+                // enqueue song by id
+                p.enqueue(createYTReadable(vid));
+            }
+
+            this.logger.info(human._s(cmd.Guild), `Added youtube playlist (${items.length} items) to queue`);
+            await cmd.reply({content: `Enqueued 👍\nSongs: ${items.length}; total time: ${human.time(items.reduce((sum, c) => sum + c.ContentDetails.Duration, 0))}`});
+
         } else if (link.type === 'video') {
             // enqueue song by id
-            // g.queue.push(new AudioYTMessage(msg, link.vid));
-            const stream = this.youtube.getAudioStream(link.vid);
-            const info = this.audioConverter.convertForDis(stream);
-            info.outStream.on('error', (e: Error) => {
-                this.logger.warn('Track fail', e);
-                // this.destroyPlayer(guild);
-                // this.notifyError(audio.msg, e);
-            });
-            p.enqueue(new YouTubeTrack(info.outStream, () => {
-                this.audioConverter.abortConvertion(info);
-            }));
+            const vid = await this.youtube.getVideoInfo(link.vid);
+            p.enqueue(createYTReadable(vid));
 
-            this.logger.info(human._s(cmd.Guild), 'Added youtube track to queue');
+            this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${link.vid}) to queue`);
             await cmd.reply({content: 'Enqueued 👍'});
-
-            // this.playStreamTo(msg.guild);
         }
+    }
+    private async notifyError(cmd: BaseCommand, e: Error) {
+        await cmd.reply({content: 'Failed to play the song, try again'});
+    }
+
+    private async skip(cmd: BaseCommand): Promise<void> {
+        const p = this.getGuildPlayer(cmd.Guild);
+        p.skip();
+        await cmd.reply({content: 'Skipped 👍'});
     }
 
     private async leave(cmd: BaseCommand): Promise<void> {
-        const p = this.getGuildPlayer(cmd.User.guild);
+        const p = this.getGuildPlayer(cmd.Guild);
         p.leaveVoice();
         await cmd.reply({content: 'Bye 👋'});
     }
     
+    private async currentPlaying(cmd: BaseCommand): Promise<void> {
+        const g = this.getGuildPlayer(cmd.Guild);
+        if (!g.Current) {
+            await cmd.reply({content: 'Nothing playing 😥'});
+            return;
+        }
+        if (g.Current.isYouTubeTrack()) {
+            await cmd.reply({
+                embeds: [
+                    new Discord.MessageEmbed()
+                        .setAuthor(g.Current.Video.Snippet.Title, undefined, `https://youtu.be/${g.Current.Video.Id}`)
+                        .setThumbnail(g.Current.Video.Snippet.bestThumbnail.Url)
+                        .addField('Channel', g.Current.Video.Snippet.ChannelTitle)
+                        .addField('Duration', human.time(g.Current.Video.ContentDetails.Duration))
+                ]
+            });
+        } else {
+            await cmd.reply({content: 'I dunno whats playing'});
+        }
+    }
+
+    private async printQueue(cmd: BaseCommand): Promise<void> {
+        const g = this.getGuildPlayer(cmd.Guild);
+
+        if (g.Queue.length === 0) {
+            await cmd.reply({content: 'Nothing in queue 🥺'});
+            return;
+        }
+        
+        const e = new Discord.MessageEmbed()
+            .setTitle(`Queue for ${cmd.Guild.name}`)
+            .setFooter(`Total: ${g.Queue.length} songs | Duration: ${human.time(g.Queue.reduce((sum, c) => sum + (c.isYouTubeTrack() && c.Video.ContentDetails.Duration || 0), 0))}`);
+        
+        let nowText = '';
+        if (g.Current.isYouTubeTrack()) {
+            nowText = `[${g.Current.Video.Snippet.Title}](https://youtu.be/${g.Current.Video.Id}) | ${human.time(g.Current.Video.ContentDetails.Duration)}`;
+        } else {
+            nowText = 'I dont know what is it';
+        }
+        let index = 1;
+        let queueText = '';
+        for (const track of g.Queue.filter((_, i) => i <= 10)) {
+            if (track.isYouTubeTrack()) {
+                queueText += `${index++}. [${track.Video.Snippet.Title}](https://youtu.be/${track.Video.Id}) | ${human.time(track.Video.ContentDetails.Duration)}\n`;
+            } else {
+                queueText += `${index++}. I dont know what is it\n`;
+            }
+        }
+        e.addField('Now playing', nowText);
+        e.addField('Up next', queueText);
+        await cmd.reply({
+            embeds: [e]
+        });
+    }
+
     private getGuildPlayer(guild: Discord.Guild): GuildAudioPlayer {
         if(!this.players[guild.id]) {
             this.players[guild.id] = new GuildAudioPlayer(guild);
-            // this.players[guild.id].on('finish', () => this.playStreamTo(guild));
         }
         return this.players[guild.id];
     }
@@ -157,18 +246,15 @@ function parseYTLink(text: string): YTLinkType | null {
     } catch {
         // whatever
     }
-    if (vid) {
-        return {
-            type: list && 'playlist' || 'video',
-            list,
-            vid,
-        };
-    }
-    return null;
+    return {
+        type: (list && 'playlist') || (vid && 'video') || 'invalid',
+        list,
+        vid,
+    };
 }
 
 interface YTLinkType {
-    type: 'video' | 'playlist'
+    type: 'video' | 'playlist' | 'invalid'
     list: string | null
     vid: string
 }

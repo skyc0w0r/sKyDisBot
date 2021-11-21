@@ -1,4 +1,5 @@
 import Discord from 'discord.js';
+import GuildAudioPlayer from './Class/GuildAudioPlayer.js';
 import CommandParserService from './Service/CommandParserService.js';
 
 function time(seconds: number): string {
@@ -33,28 +34,31 @@ function date(date: Date): string {
 
 function _s<T = unknown>(o: T): string {
     if (o instanceof Discord.Guild) {
-        return `[${o.id}|${o.name}]`;
+        return `[Guild|${o.id}|${o.name}]`;
     }
     if (o instanceof Discord.GuildMember) {
-        return `[${o.id}|${o.nickname}]`;
+        return `[GuildMember|${o.id}|${o.nickname}]`;
     }
     if (o instanceof Discord.Interaction) {
-        return `[${o.type} by ${_s(o.member)} at ${_s(o.channel)}]`;
+        return `[Interaction|${o.type} by ${_s(o.member)} at ${_s(o.channel)}]`;
     }
     if (o instanceof Discord.User) {
-        return `[${o.id}|${o.username}]`;
+        return `[User|${o.id}|${o.username}]`;
     }
     if (o instanceof Discord.TextChannel) {
-        return `[${o.id}|${o.name}]`;
+        return `[TextCh|${o.id}|${o.name}]`;
     }
     if (o instanceof Discord.Message) {
-        return `[${_s(o.member)} at ${_s(o.channel)} wrote ${o.id}|${o.content}]`;
+        return `[Msg|${_s(o.member)} at ${_s(o.channel)} wrote ${o.id}|${o.content}]`;
     }
     if (o instanceof Discord.VoiceChannel) {
-        return `[${o.id}|${o.name}]`;
+        return `[VoiceCh|${o.id}|${o.name}]`;
     }
     if (o instanceof CommandParserService) {
-        return `[${o.FullName}]`;
+        return `[CmdParser|${o.FullName}]`;
+    }
+    if (o instanceof GuildAudioPlayer) {
+        return `[Player|${_s(o.Guild)}${o.Channel && _s(o.Channel) || '(no channel)'}]`;
     }
     return '[type ???]';
 }
