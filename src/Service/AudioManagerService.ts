@@ -54,6 +54,7 @@ class AudioManagerService extends BaseService {
         cp.RegisterCommand('skip', (c) => this.skip(c), {description: 'Skips current playing track'});
         cp.RegisterCommand('np', (c) => this.currentPlaying(c), {description: 'Shows currently playing track'});
         cp.RegisterCommand('queue', (c) => this.printQueue(c), {description: 'Shows track queue'});
+        cp.RegisterCommand('summon', (c) => this.summon(c), {description: '(Re)Joins voice channel'});
         cp.RegisterAlias('p', 'audio play');
         cp.RegisterAlias('s', 'audio skip');
         cp.RegisterAlias('q', 'audio queue');
@@ -149,9 +150,9 @@ class AudioManagerService extends BaseService {
             return;
         }
         const p = this.getGuildPlayer(cmd.Guild);
-        await p.joinVoice(cmd.User.voice.channel as Discord.VoiceChannel);
+        await p.joinVoice(cmd.User.voice.channel as Discord.VoiceChannel, true);
 
-        this.logger.info(human._s(cmd.Guild), 'Joined voice channel', human._s(cmd.User.voice.channel));
+        this.logger.info(human._s(cmd.Guild), 'Joined (another) voice channel', human._s(cmd.User.voice.channel));
         await cmd.reply({content: 'Greetings 👋'});
     }
 

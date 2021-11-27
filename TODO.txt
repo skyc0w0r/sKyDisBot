@@ -1,4 +1,4 @@
-[ ] Add summon command
+[x] Add summon command
 [x] Fix duplicate error message
 [ ] Add search
 [ ] Add play first found

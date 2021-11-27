@@ -44,9 +44,20 @@ class GuildAudioPlayer {
         this.onPlayerStateChanged = this.onPlayerStateChanged.bind(this);
     }
 
-    public async joinVoice(channel: Discord.VoiceChannel): Promise<void> {
-        if (this.channel && this.voice) {
+    /**
+     * Joins voice channel
+     * @param channel Voice channel to join
+     * @param force If true, will leave the current and join new
+     * @returns 
+     */
+    public async joinVoice(channel: Discord.VoiceChannel, force = false): Promise<void> {
+        if (!force && this.channel && this.voice) {
             return;
+        }
+        if (force && this.voice) {
+            if (this.voice.rejoin({...this.voice.joinConfig, channelId: channel.id})) {
+                return;
+            }
         }
         this.voice = DSVoice.joinVoiceChannel({
             guildId: this.guild.id,
