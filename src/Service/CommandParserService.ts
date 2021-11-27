@@ -73,18 +73,23 @@ class CommandParserService extends BaseService {
             await this.DispatchInner(creator.content.substring(this.prefix.length).split(/\s+/), creator);
         }
         if (creator instanceof Discord.Interaction) {
-            if (!creator.isCommand()) {
-                return;
+            if (creator.isCommand()) {
+                await creator.deferReply();
+                this.logger.info('+', human._s(creator));
+    
+                const tokens = [
+                    creator.commandName,
+                    creator.options.getSubcommandGroup(false),
+                    creator.options.getSubcommand(false)
+                ].filter(c => !!c);
+                await this.DispatchInner(tokens, creator);
+            } else if (creator.isSelectMenu()) {
+                await creator.deleteReply();
+                this.logger.info('+', human._s(creator));
+            } else if (creator.isButton()) {
+                await creator.deleteReply();
+                this.logger.info('+', human._s(creator));
             }
-            await creator.deferReply();
-            this.logger.info('+', human._s(creator));
-
-            const tokens = [
-                creator.commandName,
-                creator.options.getSubcommandGroup(false),
-                creator.options.getSubcommand(false)
-            ].filter(c => !!c);
-            await this.DispatchInner(tokens, creator);
         }
     }
 
