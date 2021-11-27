@@ -96,6 +96,7 @@ class AudioManagerService extends BaseService {
         await cmd.reply({content: 'Enqueued 👍'});
     }
 
+    // audio play
     private async playYTLink(cmd: BaseCommand): Promise<void> {
         if (!cmd.User.voice.channel) {
             await cmd.reply({content: 'Join voice first!'});
@@ -103,28 +104,6 @@ class AudioManagerService extends BaseService {
         }
         const p = this.getGuildPlayer(cmd.Guild);
         await p.joinVoice(cmd.User.voice.channel as Discord.VoiceChannel);
-
-        const createYTReadable = (video: Video): YouTubeTrack => {
-            let info: AudioConvertionInfo;
-            const errHandler = (e: Error) => {
-                this.logger.warn('Track fail', e.name, e.message);
-                this.notifyError(cmd, e);
-            };
-            return new YouTubeTrack(video, () => {
-                const stream = this.youtube.getAudioStream(video.Id);
-                info = this.audioConverter.convertForDis(stream);
-                info.outStream.on('error', errHandler);
-                return info.outStream;
-            }, () => {
-                if (info) {
-                    this.audioConverter.abortConvertion(info);
-                }
-            }, () => {
-                if (info) {
-                    info.outStream.removeListener('error', errHandler);
-                }
-            });
-        };
 
         const link = parseYTLink(cmd.Params['link'].value);
         if (!link || link.type === 'invalid') {
@@ -136,7 +115,7 @@ class AudioManagerService extends BaseService {
             const items = await this.youtube.getPlaylist(link.list);
             for (const vid of items) {
                 // enqueue song by id
-                p.enqueue(createYTReadable(vid));
+                p.enqueue(this.createYTReadable(cmd, vid));
             }
 
             this.logger.info(human._s(cmd.Guild), `Added youtube playlist (${items.length} items) to queue`);
@@ -145,28 +124,45 @@ class AudioManagerService extends BaseService {
         } else if (link.type === 'video') {
             // enqueue song by id
             const vid = await this.youtube.getVideoInfo(link.vid);
-            p.enqueue(createYTReadable(vid));
+            p.enqueue(this.createYTReadable(cmd, vid));
 
             this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${link.vid}) to queue`);
             await cmd.reply({content: 'Enqueued 👍'});
         }
     }
+    
     private async notifyError(cmd: BaseCommand, e: Error) {
         await cmd.reply({content: 'Failed to play the song, try again'});
     }
 
+    // audio skip
     private async skip(cmd: BaseCommand): Promise<void> {
         const p = this.getGuildPlayer(cmd.Guild);
         p.skip();
         await cmd.reply({content: 'Skipped 👍'});
     }
 
+    // audio summon
+    private async summon(cmd: BaseCommand): Promise<void> {
+        if (!cmd.User.voice.channel) {
+            await cmd.reply({content: 'Join voice first!'});
+            return;
+        }
+        const p = this.getGuildPlayer(cmd.Guild);
+        await p.joinVoice(cmd.User.voice.channel as Discord.VoiceChannel);
+
+        this.logger.info(human._s(cmd.Guild), 'Joined voice channel', human._s(cmd.User.voice.channel));
+        await cmd.reply({content: 'Greetings 👋'});
+    }
+
+    // audio leave
     private async leave(cmd: BaseCommand): Promise<void> {
         const p = this.getGuildPlayer(cmd.Guild);
         p.leaveVoice();
         await cmd.reply({content: 'Bye 👋'});
     }
     
+    // audio np
     private async currentPlaying(cmd: BaseCommand): Promise<void> {
         const g = this.getGuildPlayer(cmd.Guild);
         if (!g.Current) {
@@ -188,6 +184,7 @@ class AudioManagerService extends BaseService {
         }
     }
 
+    // audio queue
     private async printQueue(cmd: BaseCommand): Promise<void> {
         const g = this.getGuildPlayer(cmd.Guild);
 
@@ -221,6 +218,28 @@ class AudioManagerService extends BaseService {
             embeds: [e]
         });
     }
+
+    createYTReadable = (cmd: BaseCommand, video: Video): YouTubeTrack => {
+        let info: AudioConvertionInfo;
+        const errHandler = (e: Error) => {
+            this.logger.warn('Track fail', e.name, e.message);
+            this.notifyError(cmd, e);
+        };
+        return new YouTubeTrack(video, () => {
+            const stream = this.youtube.getAudioStream(video.Id);
+            info = this.audioConverter.convertForDis(stream);
+            info.outStream.on('error', errHandler);
+            return info.outStream;
+        }, () => {
+            if (info) {
+                this.audioConverter.abortConvertion(info);
+            }
+        }, () => {
+            if (info) {
+                info.outStream.removeListener('error', errHandler);
+            }
+        });
+    };
 
     private getGuildPlayer(guild: Discord.Guild): GuildAudioPlayer {
         if(!this.players[guild.id]) {
