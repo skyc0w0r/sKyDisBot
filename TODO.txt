@@ -1,0 +1,11 @@
+[ ] Add summon command
+[x] Fix duplicate error message
+[ ] Add search
+[ ] Add play first found
+[ ] Add pause
+[ ] Add early playback stop check
+[ ] Add audio loop
+[ ] Add audio play last
+[ ] Add help message
+
+ytdl -> PassThrough -> ffmpeg -> PassThrough -> Player
