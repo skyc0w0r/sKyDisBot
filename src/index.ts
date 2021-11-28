@@ -25,8 +25,8 @@ async function main() {
     GlobalServiceManager().Init();
 
     cp.RegisterCommand('help', async (c) => {
-        await c.reply({ content: 'put help message here' });
-    });
+        await c.reply(cp.GetHelpMessage());
+    }, {description: 'Display help message'});
 
     const logger = Logger.getLogger('main');
     const cl = new Discord.Client({
@@ -50,9 +50,13 @@ async function main() {
         logger.info('Discord client ready');
 
         await cl.guilds.fetch();
-        const g = cl.guilds.cache.get(config.get().TEST_GUILD_ID);
-        // await g.commands.set(commands);
-        await g.commands.set(cp.GetDiscordCommandsData());
+        let targets = cl.guilds.cache;
+        if (config.get().TEST_GUILD_ID) {
+            targets = targets.filter(c => c.id === config.get().TEST_GUILD_ID);
+        }
+        for (const g of targets) {            
+            await g[1].commands.set(cp.GetDiscordCommandsData());
+        }
         
         logger.info('Commands set');
     });
@@ -82,6 +86,9 @@ async function main() {
             });
         });
 
+        // wait for anything to close/shutdown within 5 seconds
+        await new Promise<void>((resolve) => setTimeout(() => resolve(), 5e3));
+        // clear the rest
         process.exit(0);
     };
     proccess.on('SIGINT', bye);

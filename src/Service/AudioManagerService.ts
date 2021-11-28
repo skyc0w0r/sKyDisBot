@@ -41,17 +41,17 @@ class AudioManagerService extends BaseService {
         }
         cp = cp.RegisterCategory('audio', (c, i) => this.wrapper(c, i), 'Audio player commands');
         cp.RegisterCommand('play', (c) => this.playYTLink(c), {
-            description: 'play song',
+            description: 'Play video/playlist from youtube. Also search&select first result',
             options: [
                 {
                     id: 'link',
-                    description: 'Link for youtube video',
+                    description: 'Link for youtube video/Search query',
                     required: true,
                 }
             ]
         });
         cp.RegisterCommand(['search', 'find'], (c) => this.playSearch(c), {
-            description: 'Search and select',
+            description: 'Search and select video from youtube',
             options: [
                 {
                     id: 'query',
@@ -60,7 +60,8 @@ class AudioManagerService extends BaseService {
                 }
             ]
         });
-        cp.RegisterCommand('leave', (c) => this.leave(c), {description: 'leave voice'});
+        cp.RegisterCommand('pause', (c) => this.pause(c), {description: 'Pauses and unpauses player'});
+        cp.RegisterCommand('leave', (c) => this.leave(c), {description: 'Disconnect from voice channel'});
         cp.RegisterCommand('skip', (c) => this.skip(c), {description: 'Skips current playing track'});
         cp.RegisterCommand('np', (c) => this.currentPlaying(c), {description: 'Shows currently playing track'});
         cp.RegisterCommand('queue', (c) => this.printQueue(c), {description: 'Shows track queue'});
@@ -118,7 +119,17 @@ class AudioManagerService extends BaseService {
 
         const link = parseYTLink(cmd.Params['link'].value);
         if (!link || link.type === 'invalid') {
-            await cmd.reply({content: 'Invalid link'});
+            // search and play first
+            // await cmd.reply({content: 'Invalid link'});
+            const searchres = await this.youtube.search(cmd.Params['link'].value);
+            if (searchres.length === 0) {
+                await cmd.reply({content: 'No results'});
+                return;
+            }            
+            p.enqueue(this.createYTReadable(cmd, searchres[0]));
+
+            this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${searchres[0].Id}) to queue`);
+            await cmd.reply({content: this.displayYTvid(searchres[0])});
             return;
         }
         if (link.type === 'playlist') {
@@ -137,11 +148,12 @@ class AudioManagerService extends BaseService {
             const vid = await this.youtube.getVideoInfo(link.vid);
             p.enqueue(this.createYTReadable(cmd, vid));
 
-            this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${link.vid}) to queue`);
-            await cmd.reply({content: 'Enqueued 👍'});
+            this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${vid.Id}) to queue`);
+            await cmd.reply({content: this.displayYTvid(vid)});
         }
     }
 
+    // audio search
     private async playSearch(cmd: BaseCommand): Promise<void> {
         if (!cmd.User.voice.channel) {
             await cmd.reply({content: 'Join voice first!'});
@@ -171,11 +183,22 @@ class AudioManagerService extends BaseService {
         p.enqueue(this.createYTReadable(cmd, vid));
 
         this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${vid.Id}) to queue`);
-        await cmd.reply({content: 'Enqueued 👍'});
+        await cmd.reply({content: this.displayYTvid(vid)});
     }
     
     private async notifyError(cmd: BaseCommand, e: Error) {
         await cmd.reply({content: 'Failed to play the song, try again'});
+    }
+
+    // audio pause
+    private async pause(cmd: BaseCommand): Promise<void> {
+        const p = this.getGuildPlayer(cmd.Guild);
+        
+        if (p.togglePause()) {
+            await cmd.reply({content: '(Un)Paused 👍'});
+        } else {
+            await cmd.reply({content: 'Nothing playing/Nothing to play 💤'});
+        }
     }
 
     // audio skip
@@ -282,6 +305,10 @@ class AudioManagerService extends BaseService {
                 info.outStream.removeListener('error', errHandler);
             }
         });
+    };
+
+    displayYTvid = (vid: Video): string => {
+        return `Added **${vid.Snippet.Title}** to the queue!`;
     };
 
     private getGuildPlayer(guild: Discord.Guild): GuildAudioPlayer {

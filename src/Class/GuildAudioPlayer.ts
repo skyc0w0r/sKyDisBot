@@ -121,6 +121,20 @@ class GuildAudioPlayer {
         }
     }
 
+    public togglePause(): boolean {
+        if (!this.player) {
+            return false;
+        }
+        if (this.player.state.status === DSVoice.AudioPlayerStatus.Playing) {
+            this.player.pause();
+            return true;
+        } else if (this.player.state.status === DSVoice.AudioPlayerStatus.Paused) {
+            this.player.unpause();
+            return true;
+        }
+        return false;
+    }
+
     private async onVoiceStateChanged(oldS: DSVoice.VoiceConnectionState, newS: DSVoice.VoiceConnectionState): Promise<void> {
         // this.logger.debug(human._s(this.guild), 'voice state from', oldS.status, 'to', newS.status);
 

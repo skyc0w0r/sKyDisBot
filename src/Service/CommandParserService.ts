@@ -274,6 +274,71 @@ class CommandParserService extends BaseService {
         return res;
     }
 
+    public GetHelpMessage(): Discord.MessagePayload | Discord.MessageOptions {
+        return {
+            embeds: [
+                {
+                    title: 'Help message for this bot',
+                    description: `All command are available with **/** or with prefix **${this.prefix}**`,
+                    fields: [
+                        {
+                            name: 'base',
+                            value: `\`\`\`asciidoc\n${Object.keys(this.commands).map(c => `${this.commands[c].Name} :: ${this.commands[c].Description}`).join('\n')}\`\`\``
+                        },
+                        {
+                            name: 'aliases',
+                            value: `\`\`\`asciidoc\n${Object.keys(this.aliases).map(c => `${c} :: ${this.aliases[c].command.FullName}`).join('\n')}\`\`\``
+                        },
+                        ...Object.keys(this.categories).map(c => {
+                            return {
+                                name: c,
+                                value: this.categories[c].displayContent()
+                            };
+                        }),
+                    ]
+                }
+            ]
+        };
+    }
+
+    private displayContent(spaces = 0): string {
+        let s = '```asciidoc\n';
+        for (const k of Object.keys(this.commands)) {
+            const cmd = this.commands[k];
+            s += ''.padEnd(spaces, ' ');
+            s += cmd.Name;
+            s += ' ';
+            for (const arg of cmd.Arguments) {
+                if (arg.required) {
+                    s += '<';
+                } else {
+                    s += '[';
+                }
+                s += arg.id;
+                if (arg.required) {
+                    s += '>';
+                } else {
+                    s += ']';
+                }
+                s += ' ';
+            }
+            s += '\t::\t';
+            s += cmd.Description;
+            s += ' (';
+            s += `${cmd.Arguments.map(c => `${c.id}=${c.description}`).join(', ')}`;
+            s += ')\n';
+        }
+        for (const k of Object.keys(this.categories)) {
+            const cat = this.categories[k];
+            s += ''.padEnd(spaces, ' ');
+            s += k;
+            s += cat.displayContent(spaces + 2);
+        }
+
+        s += '```';
+        return s;
+    }
+
     public async CreateSelectPromt(
         cmd: BaseCommand,
         options: string[],

@@ -1,11 +1,12 @@
 [x] Add summon command
 [x] Fix duplicate error message
-[ ] Add search
-[ ] Add play first found
-[ ] Add pause
+[x] Add search
+[x] Add play first found
+[x] Add pause
 [ ] Add early playback stop check
 [ ] Add audio loop
 [ ] Add audio play last
-[ ] Add help message
+[x] Add help message
+[ ] Refactor base command
 
 ytdl -> PassThrough -> ffmpeg -> PassThrough -> Player
