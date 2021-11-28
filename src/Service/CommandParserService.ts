@@ -1,8 +1,10 @@
-import Discord from 'discord.js';
+import Discord, { User } from 'discord.js';
 import Logger from 'log4js';
+import { UserActionEmitter } from '../Class/UserActionEmitter.js';
 import human from '../human.js';
 import { AliasCollection, CategoryCollection, CategoryWrapper, CommandAlias, CommandCallback, CommandCollection, CommandParserServiceOptions } from '../Interface/CommandParserInterface.js';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
+import { UserPromtResult } from '../Interface/UserPromtResult.js';
 import { CommandCreationOptions, CommandParamCollection } from '../Model/CommandParser/CommandOption.js';
 import { BaseCommand, InteractionCommand, MessageCommand, RegisteredCommand } from '../Model/CommandParser/index.js';
 
@@ -40,6 +42,7 @@ class CommandParserService extends BaseService {
     private parent: CommandParserService | undefined;
     private name: string;
     private description: string;
+    private actionEmitter: UserActionEmitter;
 
     private logger: Logger.Logger;
     constructor({ prefix, wrapper, description }: CommandParserServiceOptions = {}) {
@@ -51,6 +54,7 @@ class CommandParserService extends BaseService {
         this.wrapper = wrapper;
         this.name = '/';
         this.description = description || 'No description provided';
+        this.actionEmitter = new UserActionEmitter();
 
         this.logger = Logger.getLogger('command_parser');
     }
@@ -66,13 +70,13 @@ class CommandParserService extends BaseService {
     public async Dispatch(creator: Discord.Message | Discord.Interaction): Promise<void> {
         if (creator instanceof Discord.Message) {
             if (!creator.content.startsWith(this.prefix)) {
+                this.actionEmitter.emitOnMessage(creator);
                 return;
             }
             this.logger.info('+', human._s(creator));
 
             await this.DispatchInner(creator.content.substring(this.prefix.length).split(/\s+/), creator);
-        }
-        if (creator instanceof Discord.Interaction) {
+        } else if (creator instanceof Discord.Interaction) {
             if (creator.isCommand()) {
                 await creator.deferReply();
                 this.logger.info('+', human._s(creator));
@@ -84,11 +88,14 @@ class CommandParserService extends BaseService {
                 ].filter(c => !!c);
                 await this.DispatchInner(tokens, creator);
             } else if (creator.isSelectMenu()) {
-                await creator.deleteReply();
+                await creator.deferReply();
+                await creator.reply({content: 'OwO whats this?'});
                 this.logger.info('+', human._s(creator));
             } else if (creator.isButton()) {
-                await creator.deleteReply();
+                await creator.deferReply();
                 this.logger.info('+', human._s(creator));
+                // console.dir(creator);
+                this.actionEmitter.emitOnButton(creator);
             }
         }
     }
@@ -267,6 +274,82 @@ class CommandParserService extends BaseService {
         return res;
     }
 
+    public async CreateSelectPromt(
+        cmd: BaseCommand,
+        options: string[],
+        filter: (user: Discord.GuildMember, channel: Discord.TextChannel) => boolean,
+        timeout = 60e3
+    ): Promise<UserPromtResult> {
+        if (!options || options.length < 1 || options.length > 10) {
+            return new Promise((_, reject) => reject(new Error('Too much or too few options (must be in range [1:10])')));
+        }
+
+        options = options.map((c, i) => `${i+1}. ${c}`);
+        const optToButton = (i: number): Discord.MessageActionRowComponentResolvable => {
+            return {
+                type: 'BUTTON',
+                style: 'PRIMARY',
+                label: (i+1).toString(),
+                customId: (i+1).toString(),
+            };
+        };
+        const comps: Discord.MessageActionRow[] = [
+            new Discord.MessageActionRow()
+                .addComponents(options.filter((_, i) => i < 5).map((_, i) => optToButton(i)))
+        ];
+        if (options.length > 5) {
+            comps.push(
+                new Discord.MessageActionRow()
+                    .addComponents(options.filter((_, i) => i >= 5).map((_, i) => optToButton(i+5)))
+            );
+        }
+        comps.push(new Discord.MessageActionRow().addComponents([
+            {
+                type: 'BUTTON',
+                style: 'SECONDARY',
+                label: 'Cancel',
+                customId: 'cancel',
+            }
+        ]));
+
+        const promtMsg = await cmd.reply({
+            content: `Select by sending message or clicking button:\n\`\`\`${options.join('\n')}\`\`\``,
+            components: comps,
+        });
+        const res = await new Promise<UserPromtResult>((resolve) => {
+            const handler = async (user: Discord.GuildMember, channel: Discord.TextChannel, result: UserPromtResult, creator: Discord.Message | Discord.ButtonInteraction) => {
+                if (!filter(user, channel)) {
+                    return;
+                }
+                clearTimeout(tmHandler);
+                this.GrandParent.actionEmitter.removeListener('action', handler);
+                if (creator) {
+                    if (creator instanceof Discord.Message) {
+                        await creator.delete();
+                    } else if (creator instanceof Discord.ButtonInteraction) {
+                        await creator.deleteReply();
+                    }
+                }
+                resolve(result);
+            };
+            const tmHandler = setTimeout(() => {
+                this.GrandParent.actionEmitter.removeListener('action', handler);
+                resolve('timeout');
+            }, timeout);
+            this.GrandParent.actionEmitter.on('action', handler);
+        });
+        
+        if (res === 'cancel') {
+            await promtMsg.edit({content: 'Canceled 🚫', components: []});
+        } else if (res === 'timeout') {
+            await promtMsg.edit({content: 'Timeout ♻', components: []});
+        } else {
+            await promtMsg.edit({content: `Selected **${options[res - 1]}**`, components: []});
+        }
+
+        return res;
+    }
+
 
     /**
      * Determines who should (if anyone) to process chat command
@@ -366,6 +449,10 @@ class CommandParserService extends BaseService {
                             return undefined;
                         }
                     }
+                    // if last argument
+                    if (command.Arguments.findIndex(c => c.id === opt.id) === command.Arguments.length - 1) {
+                        val += ' ' + text;
+                    }
                     cmdParams[opt.id] = {
                         id: opt.id,
                         value: val,
@@ -384,6 +471,7 @@ class CommandParserService extends BaseService {
             }
 
             res = new MessageCommand({
+                cmdParser: this,
                 user: creator.member,
                 message: creator,
                 params: cmdParams,
@@ -415,6 +503,7 @@ class CommandParserService extends BaseService {
             }
 
             res = new InteractionCommand({
+                cmdParser: this,
                 user: creator.member,
                 interaction: creator,
                 params: cmdParams,

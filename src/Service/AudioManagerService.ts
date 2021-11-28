@@ -50,6 +50,16 @@ class AudioManagerService extends BaseService {
                 }
             ]
         });
+        cp.RegisterCommand(['search', 'find'], (c) => this.playSearch(c), {
+            description: 'Search and select',
+            options: [
+                {
+                    id: 'query',
+                    description: 'What to search for',
+                    required: true,
+                }
+            ]
+        });
         cp.RegisterCommand('leave', (c) => this.leave(c), {description: 'leave voice'});
         cp.RegisterCommand('skip', (c) => this.skip(c), {description: 'Skips current playing track'});
         cp.RegisterCommand('np', (c) => this.currentPlaying(c), {description: 'Shows currently playing track'});
@@ -130,6 +140,38 @@ class AudioManagerService extends BaseService {
             this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${link.vid}) to queue`);
             await cmd.reply({content: 'Enqueued 👍'});
         }
+    }
+
+    private async playSearch(cmd: BaseCommand): Promise<void> {
+        if (!cmd.User.voice.channel) {
+            await cmd.reply({content: 'Join voice first!'});
+            return;
+        }
+        const p = this.getGuildPlayer(cmd.Guild);
+        await p.joinVoice(cmd.User.voice.channel as Discord.VoiceChannel);
+
+        const q = cmd.Params['query'].value;
+        const searchResults = await this.youtube.search(q);
+        if (searchResults.length === 0) {
+            await cmd.reply({content: 'No results'});
+            return;
+        }
+        
+        const selected = await cmd.CreateSelectPromt(
+            searchResults.filter(
+                (_, i) => i < 10).map(c => `${c.Snippet.Title} ${human.time(c.ContentDetails.Duration)}`
+            ), (u, c) => u.id === cmd.User.id && c.id === cmd.Channel.id
+        );
+
+        if (selected === 'cancel' || selected === 'timeout') {
+            return;
+        }
+
+        const vid = searchResults[selected - 1];
+        p.enqueue(this.createYTReadable(cmd, vid));
+
+        this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${vid.Id}) to queue`);
+        await cmd.reply({content: 'Enqueued 👍'});
     }
     
     private async notifyError(cmd: BaseCommand, e: Error) {

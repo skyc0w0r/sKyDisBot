@@ -1,6 +1,7 @@
 import Discord from 'discord.js';
 import { CommandParamCollection } from '../Model/CommandParser/CommandOption.js';
 import { BaseCommand, RegisteredCommand } from '../Model/CommandParser/index.js';
+import CommandParserService from '../Service/CommandParserService.js';
 import CommandParser from '../Service/CommandParserService.js';
 
 export type CommandParserServiceOptions = {
@@ -27,6 +28,7 @@ export interface AliasCollection {
 }
 
 export interface BaseCommandData {
+    cmdParser: CommandParserService
     user: Discord.GuildMember
     params: CommandParamCollection
 }

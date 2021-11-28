@@ -1,5 +1,7 @@
 import Discord from 'discord.js';
 import { BaseCommandData } from '../../Interface/CommandParserInterface.js';
+import { UserPromtResult } from '../../Interface/UserPromtResult.js';
+import CommandParserService from '../../Service/CommandParserService.js';
 import { CommandParamCollection } from './CommandOption.js';
 import { InteractionCommand, MessageCommand } from './index.js';
 
@@ -29,10 +31,12 @@ export class BaseCommand {
         return undefined;
     }
 
+    private cmdParser: CommandParserService;
     private user: Discord.GuildMember;
     private params: CommandParamCollection;
 
     constructor(data: BaseCommandData) {
+        this.cmdParser = data.cmdParser;
         this.user = data.user;
         this.params = data.params;
     }
@@ -44,11 +48,24 @@ export class BaseCommand {
         return this instanceof InteractionCommand;
     }
 
-    public async reply(content: Discord.MessagePayload | Discord.MessageOptions): Promise<void> {
+    public async CreateSelectPromt(
+        options: string[],
+        filter: (user: Discord.GuildMember, channel: Discord.TextChannel) => boolean,
+        timeout = 60e3,
+    ): Promise<UserPromtResult> {
+        return await this.cmdParser.CreateSelectPromt(this, options, filter, timeout);
+    }
+
+    public async reply(content: Discord.MessagePayload | Discord.MessageOptions): Promise<Discord.Message> {
         if (this.isByMessage()) {
-            await this.Channel.send(content);
+            return await this.Channel.send(content);
         } else if (this.isByInteraction()) {
-            await this.Interaction.followUp({...content});
+            if (!this.Interaction.replied) {
+                return await this.Interaction.followUp(content) as Discord.Message;
+            } else {
+                return await this.Interaction.channel.send(content);
+            }
         }
+        return undefined;
     }
 }

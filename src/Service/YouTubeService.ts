@@ -38,6 +38,7 @@ class YouTubeService extends BaseService {
     }
 
     public async search(q: string): Promise<Array<Video>> {
+        this.logger.info('Searching for:', q);
         const r1 = await this.getData('search', SearchResponse, {
             part: 'id',
             maxResults: 10,
@@ -48,6 +49,7 @@ class YouTubeService extends BaseService {
             part: 'id,contentDetails,snippet',
             id: r1.Items.map(c => c.Id).join(','),
         });
+        this.logger.info('Found', r2.Items.length, 'results');
         return r2.Items;
     }
 
@@ -110,8 +112,7 @@ class YouTubeService extends BaseService {
                 // } else
                 if (!validTrack) {
                     pt.emit('error', e);
-                } else
-                if (retry > 4) {
+                } else if (retry > 4) {
                     this.logger.warn('Retry', retry, 'for', id, 'with error:', e);
                     pt.emit('error', new Error('Max retries reached'));
                 } else {
