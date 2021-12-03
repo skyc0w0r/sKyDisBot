@@ -56,6 +56,11 @@ async function main() {
         }
         for (const g of targets) {            
             await g[1].commands.set(cp.GetDiscordCommandsData());
+
+            // const cmds = await g[1].commands.fetch();
+            // for (const c of cmds) {
+            //     await g[1].commands.delete(c[1]);
+            // }
         }
         
         logger.info('Commands set');
