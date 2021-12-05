@@ -13,11 +13,13 @@ import { CommandCallback } from '../Interface/CommandParserInterface.js';
 import human from '../human.js';
 import AudioConvertionInfo from '../Model/AudioConverter/AudioConvertionInfo.js';
 import Video from '../Model/YouTube/Video.js';
-import { TestTrack, YouTubeTrack } from '../Model/AudioManager/index.js';
+import { TestTrack, YouTubeTrack, WebTrack } from '../Model/AudioManager/index.js';
+import WebLoader from './WebLoader.js';
 
 class AudioManagerService extends BaseService {
     private audioConverter: AudioConverter;
     private youtube: YouTubeService;
+    private webLoader: WebLoader;
     private logger: Logger.Logger;
     private players: GuildAudioPlayerCollection;
     constructor() {
@@ -33,11 +35,15 @@ class AudioManagerService extends BaseService {
         }
         this.audioConverter = GlobalServiceManager().GetService(AudioConverter);
         if (!this.audioConverter) {
-            throw new Error('Where is my AudioConverter');
+            throw new Error('Where is my AudioConverter?');
         }
         this.youtube = GlobalServiceManager().GetService(YouTubeService);
         if (!this.youtube) {
-            throw new Error('Where is my YouTube');
+            throw new Error('Where is my YouTube?');
+        }
+        this.webLoader = GlobalServiceManager().GetService(WebLoader);
+        if (!this.webLoader) {
+            throw new Error('Where is my WebLoader?');
         }
         cp = cp.RegisterCategory('audio', (c, i) => this.wrapper(c, i), 'Audio player commands');
         cp.RegisterCommand('play', (c) => this.playYTLink(c), {
@@ -46,6 +52,16 @@ class AudioManagerService extends BaseService {
                 {
                     id: 'link',
                     description: 'Link for youtube video/Search query',
+                    required: true,
+                }
+            ]
+        });
+        cp.RegisterCommand('direct', (c) => this.playDirectLink(c), {
+            description: 'Plays audio file from web link',
+            options: [
+                {
+                    id: 'url',
+                    description: 'DIRECT url for audio file',
                     required: true,
                 }
             ]
@@ -106,6 +122,29 @@ class AudioManagerService extends BaseService {
         p.enqueue(new TestTrack(() => cs.outStream));
 
         await cmd.reply({content: 'Enqueued 👍'});
+    }
+
+    private async playDirectLink(cmd: BaseCommand): Promise<void> {
+        if (!cmd.User.voice.channel) {
+            await cmd.reply({content: 'Join voice first!'});
+            return;
+        }
+        const p = this.getGuildPlayer(cmd.Guild);
+        await p.joinVoice(cmd.User.voice.channel as Discord.VoiceChannel);
+
+        const urlText = cmd.Params['url'].value;
+        let url: URL;
+        try {
+            url = new URL(urlText);
+        } catch (e) {
+            cmd.reply({content: 'Invalid link 😠'});
+            return;
+        }
+        p.enqueue(this.createWebTrack(cmd, url));
+
+        this.logger.info(human._s(cmd.Guild), `Added direct link track ${''} to queue`);
+        await cmd.reply({content: '👍👍👍'});
+        return;
     }
 
     // audio play
@@ -293,6 +332,28 @@ class AudioManagerService extends BaseService {
         };
         return new YouTubeTrack(video, () => {
             const stream = this.youtube.getAudioStream(video.Id);
+            info = this.audioConverter.convertForDis(stream);
+            info.outStream.on('error', errHandler);
+            return info.outStream;
+        }, () => {
+            if (info) {
+                this.audioConverter.abortConvertion(info);
+            }
+        }, () => {
+            if (info) {
+                info.outStream.removeListener('error', errHandler);
+            }
+        });
+    };
+
+    createWebTrack = (cmd: BaseCommand, url: URL): WebTrack => {
+        let info: AudioConvertionInfo;
+        const errHandler = (e: Error) => {
+            this.logger.warn('Track fail', e.name, e.message);
+            this.notifyError(cmd, e);
+        };
+        return new WebTrack(() => {
+            const stream = this.webLoader.getReadableFromUrl(url);
             info = this.audioConverter.convertForDis(stream);
             info.outStream.on('error', errHandler);
             return info.outStream;
