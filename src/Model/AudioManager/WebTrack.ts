@@ -1,31 +1,14 @@
-import { Readable } from 'stream';
+import AudioConverter from '../../Service/AudioConverter.js';
+import WebLoader from '../../Service/WebLoader.js';
+import { BaseCommand } from '../CommandParser/index.js';
 import { AudioTrack } from './index.js';
 
-class WebTrack extends AudioTrack {
-    private cleanup: () => void;
-    private abort: () => void;
-    private createReadable: () => Readable;
+export class WebTrack extends AudioTrack {
+    public Url: URL; 
 
-    constructor(createReadable: () => Readable, cleanup: () => void = undefined, abort: () => void = undefined) {
-        super();
-        this.createReadable = createReadable;
-        this.cleanup = cleanup;
-        this.abort = abort;
-    }
+    constructor(origin: BaseCommand, url: URL, web: WebLoader, converter: AudioConverter) {
+        super(origin, converter, () => web.getReadableFromUrl(url));
 
-    public CreateReadable(): Readable {
-        return this.createReadable();
-    }
-    override Cleanup(): void {
-        if (this.cleanup) {
-            this.cleanup();
-        }
-    }
-    override Abort(): void {
-        if (this.abort) {
-            this.abort();
-        }
+        this.Url = url;
     }
 }
-
-export { WebTrack };

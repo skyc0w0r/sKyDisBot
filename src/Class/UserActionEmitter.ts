@@ -14,6 +14,10 @@ export declare interface UserActionEmitter {
     emit<U extends keyof UserActionEmitterEvents>(
         event: U, ...args: Parameters<UserActionEmitterEvents[U]>
     ): boolean
+    removeListener<U extends keyof UserActionEmitterEvents>(
+        event: U,
+        listener: UserActionEmitterEvents[U]
+    ): this
 };
 
 // add listen for?

@@ -3,8 +3,27 @@ import DSVoice, { AudioPlayerStatus, VoiceConnectionStatus } from '@discordjs/vo
 import Logger from 'log4js';
 import human from '../human.js';
 import { AudioTrack } from '../Model/AudioManager/index.js';
+import EventEmitter from 'events';
 
-class GuildAudioPlayer {
+interface GuildAudioPlayerEvents {
+    trackError: (track: AudioTrack) => void
+}
+
+export declare interface GuildAudioPlayer {
+    on<U extends keyof GuildAudioPlayerEvents>(
+        event: U,
+        listener: GuildAudioPlayerEvents[U]
+    ): this
+    emit<U extends keyof GuildAudioPlayerEvents>(
+        event: U, ...args: Parameters<GuildAudioPlayerEvents[U]>
+    ): boolean
+    removeListener<U extends keyof GuildAudioPlayerEvents>(
+        event: U,
+        listener: GuildAudioPlayerEvents[U]
+    ): this
+};
+
+export class GuildAudioPlayer extends EventEmitter {
     public get Guild(): Discord.Guild {
         return this.guild;
     }
@@ -17,6 +36,12 @@ class GuildAudioPlayer {
     public get Queue(): AudioTrack[] {
         return this.queue;
     }
+    public get PlayDuration(): number {
+        if (this.lastPlayStarted) {
+            return Math.floor(((new Date().getTime() - this.lastPlayStarted.getTime()) - (this.pauseDuration || 0)) / 1000);
+        }
+        return 0;
+    }
 
     private guild: Discord.Guild;
     private channel?: Discord.VoiceChannel;
@@ -28,10 +53,17 @@ class GuildAudioPlayer {
     private current: AudioTrack;
     private queue: Array<AudioTrack>;
     private queueLock: boolean;
+    
+    private lastPlayStarted?: Date;
+    private lastPaused?: Date;
+    private pauseDuration?: number;
+
     private isPlayerSignalled: boolean;
     private logger: Logger.Logger;
 
     constructor(guild: Discord.Guild) {
+        super();
+
         this.guild = guild;
 
         this.connectLock = false;
@@ -72,6 +104,7 @@ class GuildAudioPlayer {
         this.player.on('stateChange', this.onPlayerStateChanged);
         this.player.on('error', (e) => {
             this.logger.warn(human._s(this), 'Player error', e.name, e.message);
+            this.emit('trackError', e.resource.metadata as AudioTrack);
         });
 
         this.voice.subscribe(this.player);
@@ -99,7 +132,6 @@ class GuildAudioPlayer {
         }
 
         if (this.current) {
-            this.current.Abort();
             this.current.Cleanup();
         }
 
@@ -115,7 +147,6 @@ class GuildAudioPlayer {
     public skip(): void {
         if (this.current) {
             this.logger.info(human._s(this), 'Skipping track');
-            this.current.Abort();
             this.player.stop();
             this.current.Cleanup();
         }
@@ -186,6 +217,14 @@ class GuildAudioPlayer {
         } else if (oldS.status === DSVoice.AudioPlayerStatus.Idle && newS.status === DSVoice.AudioPlayerStatus.Buffering) {
             this.logger.debug(human._s(this), 'Player acknowledged new track');
             this.isPlayerSignalled = false;
+        } else if (oldS.status === DSVoice.AudioPlayerStatus.Buffering && newS.status === DSVoice.AudioPlayerStatus.Playing) {
+            this.lastPlayStarted = new Date();
+        } else if (oldS.status === DSVoice.AudioPlayerStatus.Playing && newS.status === DSVoice.AudioPlayerStatus.Paused) {
+            this.lastPaused = new Date();
+        } else if (oldS.status === DSVoice.AudioPlayerStatus.Paused && newS.status === DSVoice.AudioPlayerStatus.Playing) {
+            if (this.lastPaused) {
+                this.pauseDuration = (this.pauseDuration || 0) + (new Date().getTime() - this.lastPaused.getTime());
+            } 
         }
     }
 
@@ -202,12 +241,11 @@ class GuildAudioPlayer {
 
         this.queueLock = true;
         if (this.current) {
-            this.current.Abort();
             this.current.Cleanup();
         }
         const t = this.queue.shift();
         try {
-            const audioRes = DSVoice.createAudioResource(t.CreateReadable(), {inputType: DSVoice.StreamType.OggOpus});
+            const audioRes = DSVoice.createAudioResource<AudioTrack>(t.CreateReadable(), {inputType: DSVoice.StreamType.OggOpus, metadata: t});
             this.isPlayerSignalled = true;
             this.player.play(audioRes);
             this.current = t;
@@ -219,5 +257,3 @@ class GuildAudioPlayer {
         }
     }
 }
-
-export default GuildAudioPlayer;

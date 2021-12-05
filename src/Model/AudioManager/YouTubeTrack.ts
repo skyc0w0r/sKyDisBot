@@ -1,32 +1,15 @@
-import { Readable } from 'stream';
+import AudioConverter from '../../Service/AudioConverter.js';
+import YouTubeService from '../../Service/YouTubeService.js';
+import { BaseCommand } from '../CommandParser/index.js';
 import Video from '../YouTube/Video.js';
 import { AudioTrack } from './index.js';
 
 export class YouTubeTrack extends AudioTrack {
-    private cleanup: () => void;
-    private abort: () => void;
-    private createReadable: () => Readable;
     public Video: Video;
 
-    constructor(vid: Video, createReadable: () => Readable, cleanup: () => void = undefined, abort: () => void = undefined) {
-        super();
-        this.createReadable = createReadable;
-        this.cleanup = cleanup;
-        this.abort = abort;
-        this.Video = vid;
-    }
+    constructor(origin: BaseCommand, vid: Video, yt: YouTubeService, converter: AudioConverter) {
+        super(origin, converter, () => yt.getAudioStream(vid.Id));
 
-    public CreateReadable(): Readable {
-        return this.createReadable();
-    }
-    override Cleanup(): void {
-        if (this.cleanup) {
-            this.cleanup();
-        }
-    }
-    override Abort(): void {
-        if (this.abort) {
-            this.abort();
-        }
+        this.Video = vid;
     }
 }
