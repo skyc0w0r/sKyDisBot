@@ -7,9 +7,9 @@ import { YouTubeTrack, WebTrack } from './index.js';
 
 export class AudioTrack extends EventEmitter {
     public Origin: BaseCommand;
-    private getSourceStream: () => Readable;
-    private audioConverter: AudioConverter;
-    private info: AudioConvertionInfo;
+    protected getSourceStream: () => Readable;
+    protected audioConverter: AudioConverter;
+    protected info: AudioConvertionInfo;
     /**
      *
      */
@@ -28,7 +28,7 @@ export class AudioTrack extends EventEmitter {
         if (this.info) {
             this.audioConverter.abortConvertion(this.info);
         }
-    };
+    }
 
     public isYouTubeTrack(): this is YouTubeTrack {
         return this instanceof YouTubeTrack;

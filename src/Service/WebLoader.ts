@@ -25,11 +25,25 @@ class WebLoader extends BaseService {
 
     public getReadableFromUrl(url: URL): Readable {
         this.logger.info(this.identify(url), 'Starting download from', url.hostname);
-        const pt = new PassThrough({highWaterMark: 1 * 1024 * 1024});
+        const pt = new PassThrough({
+            highWaterMark: 10 * 1024 * 1024
+        });
         this.download(url).then(res => {
+            if (!res.ok) {
+                pt.emit('close');
+                pt.destroy();
+                return;
+            }
+            const sz = parseInt(res.headers.get('content-length') || '0');
+            // let szDown = 0;
+            this.logger.info(this.identify(url), 'Data size ', human.size(sz));
+
             let finished = false;
             res.body.on('data', (chunk) => {
-                pt.emit('data', chunk);
+                // szDown += chunk.length;
+                // this.logger.trace(this.identify(url), 'progress', szDown, '/', sz);
+                // pt.emit('data', chunk);
+                pt.push(chunk);
             });
             res.body.on('close', () => {
                 if (!finished) {

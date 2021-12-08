@@ -21,7 +21,7 @@ export declare interface GuildAudioPlayer {
         event: U,
         listener: GuildAudioPlayerEvents[U]
     ): this
-};
+}
 
 export class GuildAudioPlayer extends EventEmitter {
     public get Guild(): Discord.Guild {

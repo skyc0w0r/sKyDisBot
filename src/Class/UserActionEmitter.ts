@@ -18,7 +18,7 @@ export declare interface UserActionEmitter {
         event: U,
         listener: UserActionEmitterEvents[U]
     ): this
-};
+}
 
 // add listen for?
 export class UserActionEmitter extends EventEmitter {

@@ -270,6 +270,22 @@ class AudioManagerService extends BaseService {
                         .setColor('#FF3DCD')
                 ]
             });
+        } else if (g.Current.isWebTrack()) {
+            let perc = g.PlayDuration / (g.Current.Duration || Infinity);
+            perc = Math.floor(perc * 30);
+            const begin = ''.padStart(perc, '=');
+            const end = ''.padStart(30 - perc - 1, '=');
+            await cmd.reply({
+                embeds: [
+                    new Discord.MessageEmbed()
+                        .setAuthor('Now playing')
+                        .setTitle(`**${g.Current.Title}**`)
+                        .setURL(g.Current.Url.toString())
+                        .addField(`${human.time(g.PlayDuration)}/${human.time(g.Current.Duration)}`, `\`\`\`[${begin}O${end}]\`\`\``)
+                        .addField('Requested by', g.Current.Origin.User.nickname, true)
+                        .setColor('#FF3DCD')
+                ]
+            });
         } else {
             await cmd.reply({content: 'I dunno whats playing'});
         }

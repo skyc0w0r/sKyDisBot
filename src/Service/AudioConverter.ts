@@ -3,6 +3,7 @@ import Logger from 'log4js';
 import { PassThrough, Readable } from 'stream';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import AudioConvertionInfo from '../Model/AudioConverter/AudioConvertionInfo.js';
+import { AudioMetaInfo } from '../Model/AudioConverter/AudioMetaInfo.js';
 
 class AudioConverter extends BaseService {
     private logger: Logger.Logger;
@@ -41,7 +42,7 @@ class AudioConverter extends BaseService {
     
 
     public convertForDis(sourceStream: Readable): AudioConvertionInfo {
-        if (!this.convertForDis) {
+        if (!this.ffmpegCmd) {
             throw new Error('call init() first');
         }
         this.logger.debug(this.identify(sourceStream), 'Convertion started');
@@ -75,7 +76,7 @@ class AudioConverter extends BaseService {
         child.stdout.on('error', (e) => this.logger.warn(this.identify(sourceStream), 'out', e));
     
         const pt = new PassThrough({
-            highWaterMark: 2 * 1024 * 1024,
+            highWaterMark: 10 * 1024 * 1024,
         });
         const res = new AudioConvertionInfo(sourceStream, pt, child);
 
@@ -103,6 +104,54 @@ class AudioConverter extends BaseService {
         }
     }
 
+    public async getMetadata(sourceStream: Readable): Promise<AudioMetaInfo> {
+        if (!this.ffmpegCmd) {
+            throw new Error('call init() first');
+        }
+        this.logger.debug(this.identify(sourceStream), 'Getting meta');
+
+        const child = spawn(this.ffmpegCmd, [
+            '-i', 'pipe:0',
+            '-hide_banner',
+            '-f', 'null', '-'
+        ]);
+    
+        child.stdin.on('error', (e) => this.logger.warn(this.identify(sourceStream), 'in', e));
+        child.stdout.on('error', (e) => this.logger.warn(this.identify(sourceStream), 'out', e));
+    
+        const task = new Promise<AudioMetaInfo>((resolve) => {
+            let text = '';
+            child.stderr.on('data', data => {
+                text += data;
+            });
+            child.on('close', () => {
+                const artistGroups = artistRe.exec(text);
+                const artist = artistGroups?.length > 1 ? artistGroups[1].trim() : '' ?? '';
+                
+                const titleGroups = titleRe.exec(text);
+                const title = titleGroups?.length > 1 ? titleGroups[1].trim() : '' ?? '';
+
+                const duraGroups = durationRe.exec(text);
+                const dura = duraGroups?.length > 1 ? duraGroups[1].trim() : '00:00:00' ?? '00:00:00';
+
+                let duration = 0;
+                let multiplier = 3600;
+                for (const s of dura.split(':')) {
+                    duration += parseInt(s) * multiplier;
+                    multiplier /= 60;
+                }
+
+                const res = new AudioMetaInfo(artist, title, duration);
+                this.logger.debug(this.identify(sourceStream), 'Meta:', res);
+                
+                resolve(res);
+            });
+        });
+
+        sourceStream.pipe(child.stdin);
+        return await task;
+    }
+
     private identify(obj: Readable): number {
         if (!this.identifiers.has(obj)) {
             this.identifiers.set(obj, ++this.identCount);
@@ -110,5 +159,9 @@ class AudioConverter extends BaseService {
         return this.identifiers.get(obj);
     }
 }
+
+const artistRe = new RegExp('\\s+ARTIST\\s+: ([^ ]+)');
+const titleRe = new RegExp('\\s+TITLE\\s+: ([^ ]+)');
+const durationRe = new RegExp('\\s+Duration: ([0-9\\:]+)');
 
 export default AudioConverter;
