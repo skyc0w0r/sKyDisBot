@@ -4,7 +4,6 @@ import { PassThrough, Readable } from 'stream';
 import ytdl from 'ytdl-core';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import RequestParamCollection from '../Model/General/RequestParamCollection.js';
-import PlaylistItem from '../Model/YouTube/PlaylistItem.js';
 import PlaylistItemListResponse from '../Model/YouTube/PlaylistItemListResponse.js';
 import SearchResponse from '../Model/YouTube/SearchResponse.js';
 import Video from '../Model/YouTube/Video.js';

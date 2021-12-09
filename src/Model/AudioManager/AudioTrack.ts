@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import { Readable } from 'stream';
+import { PassThrough, Readable } from 'stream';
 import AudioConverter from '../../Service/AudioConverter.js';
 import AudioConvertionInfo from '../AudioConverter/AudioConvertionInfo.js';
 import { BaseCommand } from '../CommandParser/BaseCommand.js';
@@ -23,8 +23,14 @@ export class AudioTrack extends EventEmitter {
         this.audioConverter = converter;
     }
     public CreateReadable(): Readable {
+        // if (this.info) {
+        //     const pt = new PassThrough({highWaterMark: 1 * 1024 * 1024});
+        //     this.info.outStream.pipe(pt);
+        //     return pt;
+        // }
         const stream = this.getSourceStream();
         this.info = this.audioConverter.convertForDis(stream);
+        // return this.CreateReadable();
         return this.info.outStream;
     }
     public Cleanup(): void {

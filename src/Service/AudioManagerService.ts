@@ -13,6 +13,8 @@ import human from '../human.js';
 import Video from '../Model/YouTube/Video.js';
 import { YouTubeTrack, WebTrack, AudioTrack } from '../Model/AudioManager/index.js';
 import WebLoader from './WebLoader.js';
+import { LastTrackCollection } from '../Model/AudioManager/LastTrackCollection.js';
+import { LoopMode } from '../Interface/LoopMode.js';
 
 class AudioManagerService extends BaseService {
     private audioConverter: AudioConverter;
@@ -20,10 +22,12 @@ class AudioManagerService extends BaseService {
     private webLoader: WebLoader;
     private logger: Logger.Logger;
     private players: GuildAudioPlayerCollection;
+    private lastTracks: LastTrackCollection;
     constructor() {
         super();
         this.logger = Logger.getLogger('audio_manager');
         this.players = {};
+        this.lastTracks = {};
     }
 
     public Init(): void {
@@ -74,6 +78,17 @@ class AudioManagerService extends BaseService {
                 }
             ]
         });
+        cp.RegisterCommand('loop', (c) => this.toggleLoop(c), {
+            options: [
+                {
+                    id: 'mode',
+                    description: 'Loop mode',
+                    required: true,
+                    choices: [ 'none', 'one', 'all' ],
+                }
+            ]
+        });
+        cp.RegisterCommand('last', (c) => this.playLast(c), {description: 'Adds last track to queue'});
         cp.RegisterCommand('pause', (c) => this.pause(c), {description: 'Pauses and unpauses player'});
         cp.RegisterCommand('leave', (c) => this.leave(c), {description: 'Disconnect from voice channel'});
         cp.RegisterCommand('skip', (c) => this.skip(c), {description: 'Skips current playing track'});
@@ -121,16 +136,10 @@ class AudioManagerService extends BaseService {
         }
         const track = this.createWebTrack(cmd, url);
         p.enqueue(track);
+        this.setLastTrack(cmd.User, track);
 
         this.logger.info(human._s(cmd.Guild), `Added direct link track ${track.Url.toString()} to queue`);
-        await cmd.reply({embeds: [
-            new Discord.MessageEmbed()
-                .setTitle(track.Title)
-                .setURL(url.toString())
-                .setAuthor('Added to the queue')
-                .setColor('#FF3DCD')
-        ]});
-        return;
+        await cmd.reply(this.displayDirectTrack(track));
     }
 
     // audio play
@@ -150,11 +159,13 @@ class AudioManagerService extends BaseService {
             if (searchres.length === 0) {
                 await cmd.reply({content: 'No results'});
                 return;
-            }            
-            p.enqueue(this.createYTReadable(cmd, searchres[0]));
+            }         
+            const track = this.createYTReadable(cmd, searchres[0]);   
+            p.enqueue(track);
+            this.setLastTrack(cmd.User, track);
 
             this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${searchres[0].Id}) to queue`);
-            await cmd.reply({content: this.displayYTvid(searchres[0])});
+            await cmd.reply(this.displayYTtrack(searchres[0]));
             return;
         }
         if (link.type === 'playlist') {
@@ -171,10 +182,37 @@ class AudioManagerService extends BaseService {
         } else if (link.type === 'video') {
             // enqueue song by id
             const vid = await this.youtube.getVideoInfo(link.vid);
-            p.enqueue(this.createYTReadable(cmd, vid));
+            const track = this.createYTReadable(cmd, vid);
+            p.enqueue(track);
+            this.setLastTrack(cmd.User, track);
 
             this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${vid.Id}) to queue`);
-            await cmd.reply({content: this.displayYTvid(vid)});
+            await cmd.reply(this.displayYTtrack(vid));
+        }
+    }
+
+    // audio last
+    private async playLast(cmd: BaseCommand): Promise<void> {
+        if (!cmd.User.voice.channel) {
+            await cmd.reply({content: 'Join voice first!'});
+            return;
+        }
+        const p = this.getGuildPlayer(cmd.Guild);
+        await p.joinVoice(cmd.User.voice.channel as Discord.VoiceChannel);
+
+        const track = this.getLastTrack(cmd.User);
+        if (!track) {
+            await cmd.reply({content: 'You havent played anything yet 💫'});
+            return;
+        }
+
+        p.enqueue(track);
+        if (track.isYouTubeTrack()) {
+            await cmd.reply(this.displayYTtrack(track.Video));
+        } else if (track.isWebTrack()) {
+            await cmd.reply(this.displayDirectTrack(track));
+        } else {
+            await cmd.reply({content: 'Unkown track type'});
         }
     }
 
@@ -205,10 +243,12 @@ class AudioManagerService extends BaseService {
         }
 
         const vid = searchResults[selected - 1];
-        p.enqueue(this.createYTReadable(cmd, vid));
+        const track = this.createYTReadable(cmd, vid);
+        p.enqueue(track);
+        this.setLastTrack(cmd.User, track);
 
         this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${vid.Id}) to queue`);
-        await cmd.reply({content: this.displayYTvid(vid)});
+        await cmd.reply(this.displayYTtrack(vid));
     }
     
     private async notifyError(track: AudioTrack) {
@@ -221,6 +261,19 @@ class AudioManagerService extends BaseService {
         
         if (p.togglePause()) {
             await cmd.reply({content: '(Un)Paused 👍'});
+        } else {
+            await cmd.reply({content: 'Nothing playing/Nothing to play 💤'});
+        } 
+    }
+
+    // audio loop
+    private async toggleLoop(cmd: BaseCommand): Promise<void> {
+        const p = this.getGuildPlayer(cmd.Guild);
+        
+        const mode = cmd.Params['mode'].value;
+        
+        if (p.toggleLoop(mode as LoopMode)) {
+            await cmd.reply({content: `Loop mode set to **${mode}**`});
         } else {
             await cmd.reply({content: 'Nothing playing/Nothing to play 💤'});
         }
@@ -308,8 +361,15 @@ class AudioManagerService extends BaseService {
             return;
         }
         
+        const loopToEmoji = {
+            'none': '➡',
+            'one': '🔂',
+            'all': '🔁',
+        };
+
         const e = new Discord.MessageEmbed()
             .setTitle(`Queue for ${cmd.Guild.name}`)
+            .setDescription(`Loop: ${loopToEmoji[g.LoopMode]}`)
             .setColor('#FF3DCD')
             .setFooter(`Total: ${g.Queue.length} songs | Duration: ${human.time(g.Queue.reduce((sum, c) => sum + (c.isYouTubeTrack() && c.Video.ContentDetails.Duration || 0), 0))}`);
         
@@ -347,8 +407,19 @@ class AudioManagerService extends BaseService {
         return new WebTrack(cmd, url, this.webLoader, this.audioConverter);
     };
 
-    displayYTvid = (vid: Video): string => {
-        return `Added **${vid.Snippet.Title}** to the queue!`;
+    displayYTtrack = (vid: Video): Discord.MessagePayload | Discord.MessageOptions => {
+        return { content: `Added **${vid.Snippet.Title}** to the queue!` };
+    };
+
+    displayDirectTrack = (track: WebTrack): Discord.MessagePayload | Discord.MessageOptions => {
+        return { content: `Added **${track.Title}** to the queue` };
+        return { embeds: [
+            new Discord.MessageEmbed()
+                .setTitle(track.Title)
+                .setURL(track.Url.toString())
+                .setAuthor('Added to the queue')
+                .setColor('#FF3DCD')
+        ]};
     };
 
     private getGuildPlayer(guild: Discord.Guild): GuildAudioPlayer {
@@ -358,6 +429,14 @@ class AudioManagerService extends BaseService {
             this.players[guild.id] = p;
         }
         return this.players[guild.id];
+    }
+
+    private getLastTrack(user: Discord.GuildMember): AudioTrack | undefined {
+        return this.lastTracks[user.user.id];
+    }
+
+    private setLastTrack(user: Discord.GuildMember, track: AudioTrack): void {
+        this.lastTracks[user.user.id] = track;
     }
 }
 

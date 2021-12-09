@@ -4,6 +4,7 @@ import Logger from 'log4js';
 import human from '../human.js';
 import { AudioTrack } from '../Model/AudioManager/index.js';
 import EventEmitter from 'events';
+import { LoopMode } from '../Interface/LoopMode.js';
 
 interface GuildAudioPlayerEvents {
     trackError: (track: AudioTrack) => void
@@ -42,6 +43,9 @@ export class GuildAudioPlayer extends EventEmitter {
         }
         return 0;
     }
+    public get LoopMode(): LoopMode {
+        return this.loopMode;
+    }
 
     private guild: Discord.Guild;
     private channel?: Discord.VoiceChannel;
@@ -53,6 +57,7 @@ export class GuildAudioPlayer extends EventEmitter {
     private current: AudioTrack;
     private queue: Array<AudioTrack>;
     private queueLock: boolean;
+    private loopMode: LoopMode;
     
     private lastPlayStarted?: Date;
     private lastPaused?: Date;
@@ -69,6 +74,7 @@ export class GuildAudioPlayer extends EventEmitter {
         this.connectLock = false;
         this.queue = [];
         this.queueLock = false;
+        this.loopMode = 'none';
         this.isPlayerSignalled = false;
         this.logger = Logger.getLogger('guild_audio');
 
@@ -147,6 +153,9 @@ export class GuildAudioPlayer extends EventEmitter {
     public skip(): void {
         if (this.current) {
             this.logger.info(human._s(this), 'Skipping track');
+            if (this.loopMode === 'one') {
+                this.queue.shift();
+            }
             this.player.stop();
             this.current.Cleanup();
         }
@@ -164,6 +173,15 @@ export class GuildAudioPlayer extends EventEmitter {
             return true;
         }
         return false;
+    }
+
+    public toggleLoop(loopOption: LoopMode): boolean {
+        if (!this.player || !this.current) {
+            return false;
+        }
+
+        this.loopMode = loopOption;
+        return true;
     }
 
     private async onVoiceStateChanged(oldS: DSVoice.VoiceConnectionState, newS: DSVoice.VoiceConnectionState): Promise<void> {
@@ -214,13 +232,17 @@ export class GuildAudioPlayer extends EventEmitter {
         if (oldS.status !== DSVoice.AudioPlayerStatus.Idle && newS.status === DSVoice.AudioPlayerStatus.Idle) {
             this.logger.debug(human._s(this), 'Player finished playing');
             this.checkQueue();
+        // Started buffering
         } else if (oldS.status === DSVoice.AudioPlayerStatus.Idle && newS.status === DSVoice.AudioPlayerStatus.Buffering) {
             this.logger.debug(human._s(this), 'Player acknowledged new track');
             this.isPlayerSignalled = false;
+        // Started playing
         } else if (oldS.status === DSVoice.AudioPlayerStatus.Buffering && newS.status === DSVoice.AudioPlayerStatus.Playing) {
             this.lastPlayStarted = new Date();
+        // Paused
         } else if (oldS.status === DSVoice.AudioPlayerStatus.Playing && newS.status === DSVoice.AudioPlayerStatus.Paused) {
             this.lastPaused = new Date();
+        // Unpaused
         } else if (oldS.status === DSVoice.AudioPlayerStatus.Paused && newS.status === DSVoice.AudioPlayerStatus.Playing) {
             if (this.lastPaused) {
                 this.pauseDuration = (this.pauseDuration || 0) + (new Date().getTime() - this.lastPaused.getTime());
@@ -230,7 +252,6 @@ export class GuildAudioPlayer extends EventEmitter {
 
     private checkQueue(): void {
         if (this.queueLock
-            || this.queue.length === 0
             || this.player?.state?.status !== AudioPlayerStatus.Idle
             || this.voice?.state?.status !== VoiceConnectionStatus.Ready
             || this.isPlayerSignalled) {
@@ -242,7 +263,21 @@ export class GuildAudioPlayer extends EventEmitter {
         this.queueLock = true;
         if (this.current) {
             this.current.Cleanup();
+            
+            if (this.LoopMode === 'one') {
+                this.queue.unshift(this.current);
+            } else if (this.loopMode === 'all') {
+                this.queue.push(this.current);
+            } else {
+                // this.current.Cleanup();
+            }
         }
+        
+        if (this.queue.length === 0) {
+            this.queueLock = false;
+            return;
+        }
+
         const t = this.queue.shift();
         try {
             const audioRes = DSVoice.createAudioResource<AudioTrack>(t.CreateReadable(), {inputType: DSVoice.StreamType.OggOpus, metadata: t});

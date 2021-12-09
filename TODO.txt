@@ -4,8 +4,8 @@
 [x] Add play first found
 [x] Add pause
 [ ] Add early playback stop check
-[ ] Add audio loop
-[ ] Add audio play last
+[X] Add audio loop
+[X] Add audio play last
 [x] Add help message
 [ ] Refactor base command
 
