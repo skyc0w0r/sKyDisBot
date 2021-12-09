@@ -51,22 +51,22 @@ async function main() {
     cl.on('ready', async () => {
         logger.info('Discord client ready');
 
-        await cl.guilds.fetch();
-        let targets = cl.guilds.cache;
-        if (config.get().TEST_GUILD_ID) {
-            targets = targets.filter(c => c.id === config.get().TEST_GUILD_ID);
-        }
-        for (const g of targets) {
-            // add commands
-            await g[1].commands.set(cp.GetDiscordCommandsData());
-            // remove commands
-            // const cmds = await g[1].commands.fetch();
-            // for (const c of cmds) {
-            //     await g[1].commands.delete(c[1]);
-            // }
-        }
+        // await cl.guilds.fetch();
+        // let targets = cl.guilds.cache;
+        // if (config.get().TEST_GUILD_ID) {
+        //     targets = targets.filter(c => c.id === config.get().TEST_GUILD_ID);
+        // }
+        // for (const g of targets) {
+        //     // add commands
+        //     await g[1].commands.set(cp.GetDiscordCommandsData());
+        //     // remove commands
+        //     // const cmds = await g[1].commands.fetch();
+        //     // for (const c of cmds) {
+        //     //     await g[1].commands.delete(c[1]);
+        //     // }
+        // }
         
-        logger.info('Commands set');
+        // logger.info('Commands set');
     });
 
     cl.on('interactionCreate', async (inter) => {
