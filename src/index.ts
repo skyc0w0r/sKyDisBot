@@ -33,18 +33,18 @@ async function main() {
         intents: ['GUILDS', 'GUILD_MESSAGES', 'GUILD_VOICE_STATES']
     });
 
-    // const dsrest = new DSRest.REST({
-    //     version: '9',
-    // }).setToken(config.get().DIS_TOKEN);
-    // try {
-    //     await dsrest.put(
-    //         DSTypes.Routes.applicationGuildCommands(config.get().BOT_CLIENT_ID, config.get().TEST_GUILD_ID), {
-    //         body: commands
-    //     });
-    // } catch (e) {
-    //     logger.fatal('Failed to registered commands', e);
-    //     return;
-    // }
+    const dsrest = new DSRest.REST({
+        version: '9',
+    }).setToken(config.get().DIS_TOKEN);
+    try {
+        await dsrest.put(
+            DSTypes.Routes.applicationCommands(config.get().BOT_CLIENT_ID),
+            {body : cp.GetDiscordCommandsData() },
+        );
+    } catch (e) {
+        logger.fatal('Failed to registered commands', e);
+        return;
+    }
 
     cl.on('ready', async () => {
         logger.info('Discord client ready');
@@ -54,9 +54,10 @@ async function main() {
         if (config.get().TEST_GUILD_ID) {
             targets = targets.filter(c => c.id === config.get().TEST_GUILD_ID);
         }
-        for (const g of targets) {            
+        for (const g of targets) {
+            // add commands
             await g[1].commands.set(cp.GetDiscordCommandsData());
-
+            // remove commands
             // const cmds = await g[1].commands.fetch();
             // for (const c of cmds) {
             //     await g[1].commands.delete(c[1]);

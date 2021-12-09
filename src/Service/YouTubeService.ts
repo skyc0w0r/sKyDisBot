@@ -54,7 +54,7 @@ class YouTubeService extends BaseService {
     }
 
     public async getPlaylist(id: string): Promise<Array<Video>> {
-        const items = new Array<PlaylistItem>();
+        const items = new Array<Video>();
         let nextPageToken;
 
         // eslint-disable-next-line no-constant-condition
@@ -68,20 +68,19 @@ class YouTubeService extends BaseService {
                 r1params['pageToken'] = nextPageToken;
             }
             const r1 = await this.getData('playlistItems', PlaylistItemListResponse, r1params);
-            items.push(...r1.Items);
-
+            const r2 = await this.getData('videos', VideosResponse, {
+                part: 'id,contentDetails,snippet',
+                id: r1.Items.map(c => c.Snippet.ResourceId).join(','),
+            });
+            items.push(...r2.Items);
+        
             nextPageToken = r1.NextPageToken;
             if (!nextPageToken) {
                 break;
             }
         }
-        
-        const r2 = await this.getData('videos', VideosResponse, {
-            part: 'id,contentDetails,snippet',
-            id: items.map(c => c.Snippet.ResourceId).join(','),
-        });
 
-        return r2.Items;
+        return items;
     }
 
     public getAudioStream(id: string): Readable {
