@@ -85,7 +85,9 @@ class YouTubeService extends BaseService {
 
     public getAudioStream(id: string): Readable {
         // return ytdl(id, { filter: 'audioonly' });
-        const pt = new PassThrough({highWaterMark: 1 * 1024 * 1024});
+        const pt = new PassThrough({
+            highWaterMark: 10 * 1024 * 1024
+        });
         let validTrack = false;
         const watchIt = (begin = 0, retry = 0) => new Promise<void>((resolve) => {
             const src = ytdl(id, { filter: 'audioonly' });
@@ -94,7 +96,8 @@ class YouTubeService extends BaseService {
                 validTrack = true;
                 len += chunk.length;
                 if (len >= begin) {
-                    pt.emit('data', chunk);
+                    // pt.emit('data', chunk);
+                    pt.push(chunk);
                 }
             });
             src.on('close', () => {
@@ -147,6 +150,6 @@ class YouTubeService extends BaseService {
         const j = await resp.json();
         return new TypeNew(j);
     }
-};
+}
 
 export default YouTubeService;

@@ -9,6 +9,7 @@ import AudioConverter from './Service/AudioConverter.js';
 import AudioManagerService from './Service/AudioManagerService.js';
 import { GlobalServiceManager } from './Service/ServiceManager.js';
 import CommandParserService from './Service/CommandParserService.js';
+import WebLoader from './Service/WebLoader.js';
 
 async function main() {
     config.check();
@@ -19,8 +20,9 @@ async function main() {
     GlobalServiceManager()
         .AddService(CommandParserService, cp)
         .AddService(YouTubeService, new YouTubeService(config.get().YT_DATA_TOKEN))
+        .AddService(WebLoader, new WebLoader(config.get().WEB_USER_AGENT))
         .AddService(AudioConverter, new AudioConverter())
-        .AddService(AudioManagerService, new AudioManagerService());   
+        .AddService(AudioManagerService, new AudioManagerService());
     
     GlobalServiceManager().Init();
 

@@ -1,4 +1,4 @@
-import Discord, { User } from 'discord.js';
+import Discord from 'discord.js';
 import Logger from 'log4js';
 import { UserActionEmitter } from '../Class/UserActionEmitter.js';
 import human from '../human.js';

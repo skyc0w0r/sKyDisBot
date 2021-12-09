@@ -1,5 +1,4 @@
 import Discord from 'discord.js';
-import { createReadStream } from 'fs';
 import Logger from 'log4js';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import { BaseCommand } from '../Model/CommandParser/index.js';
@@ -8,16 +7,17 @@ import { GlobalServiceManager } from './ServiceManager.js';
 import AudioConverter from './AudioConverter.js';
 import YouTubeService from './YouTubeService.js';
 import { GuildAudioPlayerCollection } from '../Model/AudioManager/GuildAudioPlayerCollection.js';
-import GuildAudioPlayer from '../Class/GuildAudioPlayer.js';
+import { GuildAudioPlayer } from '../Class/GuildAudioPlayer.js';
 import { CommandCallback } from '../Interface/CommandParserInterface.js';
 import human from '../human.js';
-import AudioConvertionInfo from '../Model/AudioConverter/AudioConvertionInfo.js';
 import Video from '../Model/YouTube/Video.js';
-import { TestTrack, YouTubeTrack } from '../Model/AudioManager/index.js';
+import { YouTubeTrack, WebTrack, AudioTrack } from '../Model/AudioManager/index.js';
+import WebLoader from './WebLoader.js';
 
 class AudioManagerService extends BaseService {
     private audioConverter: AudioConverter;
     private youtube: YouTubeService;
+    private webLoader: WebLoader;
     private logger: Logger.Logger;
     private players: GuildAudioPlayerCollection;
     constructor() {
@@ -33,11 +33,15 @@ class AudioManagerService extends BaseService {
         }
         this.audioConverter = GlobalServiceManager().GetService(AudioConverter);
         if (!this.audioConverter) {
-            throw new Error('Where is my AudioConverter');
+            throw new Error('Where is my AudioConverter?');
         }
         this.youtube = GlobalServiceManager().GetService(YouTubeService);
         if (!this.youtube) {
-            throw new Error('Where is my YouTube');
+            throw new Error('Where is my YouTube?');
+        }
+        this.webLoader = GlobalServiceManager().GetService(WebLoader);
+        if (!this.webLoader) {
+            throw new Error('Where is my WebLoader?');
         }
         cp = cp.RegisterCategory('audio', (c, i) => this.wrapper(c, i), 'Audio player commands');
         cp.RegisterCommand('play', (c) => this.playYTLink(c), {
@@ -46,6 +50,16 @@ class AudioManagerService extends BaseService {
                 {
                     id: 'link',
                     description: 'Link for youtube video/Search query',
+                    required: true,
+                }
+            ]
+        });
+        cp.RegisterCommand('direct', (c) => this.playDirectLink(c), {
+            description: 'Plays audio file from web link',
+            options: [
+                {
+                    id: 'url',
+                    description: 'DIRECT url for audio file',
                     required: true,
                 }
             ]
@@ -88,24 +102,35 @@ class AudioManagerService extends BaseService {
         }
     }
 
-    private async play(cmd: BaseCommand): Promise<void> {
-        if (!(cmd.User instanceof Discord.GuildMember)) {
-            return;
-        }
-
+    // audio direct
+    private async playDirectLink(cmd: BaseCommand): Promise<void> {
         if (!cmd.User.voice.channel) {
             await cmd.reply({content: 'Join voice first!'});
             return;
         }
-        
-        const s = createReadStream('ЮГ 404 - НАЙДИ МЕНЯ (2018).mp3');
-        // const s = this.youtube.getAudioStream('https://www.youtube.com/watch?v=Dkuo54HaYCM');
-        const cs = this.audioConverter.convertForDis(s);
         const p = this.getGuildPlayer(cmd.Guild);
         await p.joinVoice(cmd.User.voice.channel as Discord.VoiceChannel);
-        p.enqueue(new TestTrack(() => cs.outStream));
 
-        await cmd.reply({content: 'Enqueued 👍'});
+        const urlText = cmd.Params['url'].value;
+        let url: URL;
+        try {
+            url = new URL(urlText);
+        } catch (e) {
+            cmd.reply({content: 'Invalid link 😠'});
+            return;
+        }
+        const track = this.createWebTrack(cmd, url);
+        p.enqueue(track);
+
+        this.logger.info(human._s(cmd.Guild), `Added direct link track ${track.Url.toString()} to queue`);
+        await cmd.reply({embeds: [
+            new Discord.MessageEmbed()
+                .setTitle(track.Title)
+                .setURL(url.toString())
+                .setAuthor('Added to the queue')
+                .setColor('#FF3DCD')
+        ]});
+        return;
     }
 
     // audio play
@@ -186,8 +211,8 @@ class AudioManagerService extends BaseService {
         await cmd.reply({content: this.displayYTvid(vid)});
     }
     
-    private async notifyError(cmd: BaseCommand, e: Error) {
-        await cmd.reply({content: 'Failed to play the song, try again'});
+    private async notifyError(track: AudioTrack) {
+        await track.Origin.reply({content: `Failed to play **${track.Title}**, try again`});
     }
 
     // audio pause
@@ -236,13 +261,37 @@ class AudioManagerService extends BaseService {
             return;
         }
         if (g.Current.isYouTubeTrack()) {
+            let perc = g.PlayDuration / g.Current.Video.ContentDetails.Duration;
+            perc = Math.floor(perc * 30);
+            const begin = ''.padStart(perc, '=');
+            const end = ''.padStart(30 - perc - 1, '=');
             await cmd.reply({
                 embeds: [
                     new Discord.MessageEmbed()
-                        .setAuthor(g.Current.Video.Snippet.Title, undefined, `https://youtu.be/${g.Current.Video.Id}`)
+                        .setAuthor('Now playing')
+                        .setTitle(`**${g.Current.Video.Snippet.Title}**`)
+                        .setURL(`https://youtu.be/${g.Current.Video.Id}`)
                         .setThumbnail(g.Current.Video.Snippet.bestThumbnail.Url)
-                        .addField('Channel', g.Current.Video.Snippet.ChannelTitle)
-                        .addField('Duration', human.time(g.Current.Video.ContentDetails.Duration))
+                        .addField(`${human.time(g.PlayDuration)}/${human.time(g.Current.Video.ContentDetails.Duration)}`, `\`\`\`[${begin}O${end}]\`\`\``)
+                        .addField('Channel', g.Current.Video.Snippet.ChannelTitle, true)
+                        .addField('Requested by', g.Current.Origin.User.nickname, true)
+                        .setColor('#FF3DCD')
+                ]
+            });
+        } else if (g.Current.isWebTrack()) {
+            let perc = g.PlayDuration / (g.Current.Duration || Infinity);
+            perc = Math.floor(perc * 30);
+            const begin = ''.padStart(perc, '=');
+            const end = ''.padStart(30 - perc - 1, '=');
+            await cmd.reply({
+                embeds: [
+                    new Discord.MessageEmbed()
+                        .setAuthor('Now playing')
+                        .setTitle(`**${g.Current.Title}**`)
+                        .setURL(g.Current.Url.toString())
+                        .addField(`${human.time(g.PlayDuration)}/${human.time(g.Current.Duration)}`, `\`\`\`[${begin}O${end}]\`\`\``)
+                        .addField('Requested by', g.Current.Origin.User.nickname, true)
+                        .setColor('#FF3DCD')
                 ]
             });
         } else {
@@ -261,11 +310,14 @@ class AudioManagerService extends BaseService {
         
         const e = new Discord.MessageEmbed()
             .setTitle(`Queue for ${cmd.Guild.name}`)
+            .setColor('#FF3DCD')
             .setFooter(`Total: ${g.Queue.length} songs | Duration: ${human.time(g.Queue.reduce((sum, c) => sum + (c.isYouTubeTrack() && c.Video.ContentDetails.Duration || 0), 0))}`);
         
         let nowText = '';
         if (g.Current.isYouTubeTrack()) {
             nowText = `[${g.Current.Video.Snippet.Title}](https://youtu.be/${g.Current.Video.Id}) | ${human.time(g.Current.Video.ContentDetails.Duration)}`;
+        } else if (g.Current.isWebTrack()) {
+            nowText = `[${g.Current.Title}](${g.Current.Url.toString()}) | ${human.time(g.Current.Duration)}`;
         } else {
             nowText = 'I dont know what is it';
         }
@@ -274,6 +326,8 @@ class AudioManagerService extends BaseService {
         for (const track of g.Queue.filter((_, i) => i <= 10)) {
             if (track.isYouTubeTrack()) {
                 queueText += `${index++}. [${track.Video.Snippet.Title}](https://youtu.be/${track.Video.Id}) | ${human.time(track.Video.ContentDetails.Duration)}\n`;
+            } else if (track.isWebTrack()) {
+                queueText += `${index++}. [${track.Title}](${track.Url.toString()}) | ${human.time(track.Duration)}\n`;
             } else {
                 queueText += `${index++}. I dont know what is it\n`;
             }
@@ -286,25 +340,11 @@ class AudioManagerService extends BaseService {
     }
 
     createYTReadable = (cmd: BaseCommand, video: Video): YouTubeTrack => {
-        let info: AudioConvertionInfo;
-        const errHandler = (e: Error) => {
-            this.logger.warn('Track fail', e.name, e.message);
-            this.notifyError(cmd, e);
-        };
-        return new YouTubeTrack(video, () => {
-            const stream = this.youtube.getAudioStream(video.Id);
-            info = this.audioConverter.convertForDis(stream);
-            info.outStream.on('error', errHandler);
-            return info.outStream;
-        }, () => {
-            if (info) {
-                this.audioConverter.abortConvertion(info);
-            }
-        }, () => {
-            if (info) {
-                info.outStream.removeListener('error', errHandler);
-            }
-        });
+        return new YouTubeTrack(cmd, video, this.youtube, this.audioConverter);
+    };
+
+    createWebTrack = (cmd: BaseCommand, url: URL): WebTrack => {
+        return new WebTrack(cmd, url, this.webLoader, this.audioConverter);
     };
 
     displayYTvid = (vid: Video): string => {
@@ -313,7 +353,9 @@ class AudioManagerService extends BaseService {
 
     private getGuildPlayer(guild: Discord.Guild): GuildAudioPlayer {
         if(!this.players[guild.id]) {
-            this.players[guild.id] = new GuildAudioPlayer(guild);
+            const p = new GuildAudioPlayer(guild);
+            p.on('trackError', (t) => this.notifyError(t));
+            this.players[guild.id] = p;
         }
         return this.players[guild.id];
     }

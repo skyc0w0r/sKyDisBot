@@ -1,5 +1,5 @@
 import Discord from 'discord.js';
-import GuildAudioPlayer from './Class/GuildAudioPlayer.js';
+import { GuildAudioPlayer } from './Class/GuildAudioPlayer.js';
 import CommandParserService from './Service/CommandParserService.js';
 
 function time(seconds: number): string {
