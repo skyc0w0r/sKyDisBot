@@ -8,6 +8,7 @@ interface Config {
     BOT_CLIENT_ID: string
     TEST_GUILD_ID: string
     COMMAND_PREFIX: string
+    WEB_USER_AGENT: string
 }
 
 const PLACEHOLDER = '[change_me]';
@@ -18,6 +19,7 @@ const DefaultConfig: Config = {
     BOT_CLIENT_ID: PLACEHOLDER,
     TEST_GUILD_ID: PLACEHOLDER,
     COMMAND_PREFIX: '!',
+    WEB_USER_AGENT: PLACEHOLDER,
 };
 const configPath = join(process.cwd(), 'config.json');
 let CurrentConfig: Config | undefined = undefined;

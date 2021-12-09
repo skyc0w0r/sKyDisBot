@@ -102,6 +102,7 @@ class AudioManagerService extends BaseService {
         }
     }
 
+    // audio direct
     private async playDirectLink(cmd: BaseCommand): Promise<void> {
         if (!cmd.User.voice.channel) {
             await cmd.reply({content: 'Join voice first!'});
@@ -118,10 +119,17 @@ class AudioManagerService extends BaseService {
             cmd.reply({content: 'Invalid link 😠'});
             return;
         }
-        p.enqueue(this.createWebTrack(cmd, url));
+        const track = this.createWebTrack(cmd, url);
+        p.enqueue(track);
 
-        this.logger.info(human._s(cmd.Guild), `Added direct link track ${''} to queue`);
-        await cmd.reply({content: '👍👍👍'});
+        this.logger.info(human._s(cmd.Guild), `Added direct link track ${track.Url.toString()} to queue`);
+        await cmd.reply({embeds: [
+            new Discord.MessageEmbed()
+                .setTitle(track.Title)
+                .setURL(url.toString())
+                .setAuthor('Added to the queue')
+                .setColor('#FF3DCD')
+        ]});
         return;
     }
 
@@ -204,7 +212,7 @@ class AudioManagerService extends BaseService {
     }
     
     private async notifyError(track: AudioTrack) {
-        await track.Origin.reply({content: 'Failed to play the song, try again'});
+        await track.Origin.reply({content: `Failed to play **${track.Title}**, try again`});
     }
 
     // audio pause
@@ -308,6 +316,8 @@ class AudioManagerService extends BaseService {
         let nowText = '';
         if (g.Current.isYouTubeTrack()) {
             nowText = `[${g.Current.Video.Snippet.Title}](https://youtu.be/${g.Current.Video.Id}) | ${human.time(g.Current.Video.ContentDetails.Duration)}`;
+        } else if (g.Current.isWebTrack()) {
+            nowText = `[${g.Current.Title}](${g.Current.Url.toString()}) | ${human.time(g.Current.Duration)}`;
         } else {
             nowText = 'I dont know what is it';
         }
@@ -316,6 +326,8 @@ class AudioManagerService extends BaseService {
         for (const track of g.Queue.filter((_, i) => i <= 10)) {
             if (track.isYouTubeTrack()) {
                 queueText += `${index++}. [${track.Video.Snippet.Title}](https://youtu.be/${track.Video.Id}) | ${human.time(track.Video.ContentDetails.Duration)}\n`;
+            } else if (track.isWebTrack()) {
+                queueText += `${index++}. [${track.Title}](${track.Url.toString()}) | ${human.time(track.Duration)}\n`;
             } else {
                 queueText += `${index++}. I dont know what is it\n`;
             }

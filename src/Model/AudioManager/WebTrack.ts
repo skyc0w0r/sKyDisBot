@@ -7,14 +7,17 @@ import { AudioTrack } from './index.js';
 
 export class WebTrack extends AudioTrack {
     public Url: URL; 
-    public Title: string;
+    public override get Title(): string {
+        return this.title;
+    }
+    private title: string;
     public Duration: number;
 
     constructor(origin: BaseCommand, url: URL, web: WebLoader, converter: AudioConverter) {
         super(origin, converter, () => web.getReadableFromUrl(url));
 
         this.Url = url;
-        this.Title = 'Unknown yet';
+        this.title = path.basename(decodeURI(this.Url.pathname));
         this.Duration = 0;
     }
 
@@ -36,11 +39,9 @@ export class WebTrack extends AudioTrack {
         this.audioConverter.getMetadata(pt1).then(meta => {
             if (meta.Title) {
                 if (meta.Artist) {
-                    this.Title = `${meta.Artist} - ${meta.Title}`;
+                    this.title = `${meta.Artist} - ${meta.Title}`;
                 }
-                this.Title = meta.Title;
-            } else {
-                this.Title = path.basename(decodeURI(this.Url.pathname));
+                this.title = meta.Title;
             }
             this.Duration = meta.Duration;
         });

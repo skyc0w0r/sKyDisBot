@@ -7,6 +7,9 @@ import { YouTubeTrack, WebTrack } from './index.js';
 
 export class AudioTrack extends EventEmitter {
     public Origin: BaseCommand;
+    public get Title(): string {
+        return 'Unkown track';
+    }
     protected getSourceStream: () => Readable;
     protected audioConverter: AudioConverter;
     protected info: AudioConvertionInfo;

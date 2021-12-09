@@ -5,6 +5,9 @@ import Video from '../YouTube/Video.js';
 import { AudioTrack } from './index.js';
 
 export class YouTubeTrack extends AudioTrack {
+    public override get Title(): string {
+        return this.Video.Snippet?.Title || super.Title;
+    }
     public Video: Video;
 
     constructor(origin: BaseCommand, vid: Video, yt: YouTubeService, converter: AudioConverter) {

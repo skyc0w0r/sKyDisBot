@@ -20,7 +20,7 @@ async function main() {
     GlobalServiceManager()
         .AddService(CommandParserService, cp)
         .AddService(YouTubeService, new YouTubeService(config.get().YT_DATA_TOKEN))
-        .AddService(WebLoader, new WebLoader())
+        .AddService(WebLoader, new WebLoader(config.get().WEB_USER_AGENT))
         .AddService(AudioConverter, new AudioConverter())
         .AddService(AudioManagerService, new AudioManagerService());
     

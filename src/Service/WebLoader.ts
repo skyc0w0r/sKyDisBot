@@ -8,12 +8,14 @@ class WebLoader extends BaseService {
     private logger: Logger.Logger;
     private identifiers: WeakMap<URL, number>;
     private identCount: number;
+    private userAgent: string;
 
-    constructor() {
+    constructor(userAgent?: string) {
         super();
         this.logger = Logger.getLogger('web_loader');
         this.identifiers = new WeakMap<URL, number>();
         this.identCount = 0;
+        this.userAgent = userAgent || 'sKyDisBot/1.0';
     }
 
     Init(): void {
@@ -28,9 +30,14 @@ class WebLoader extends BaseService {
         const pt = new PassThrough({
             highWaterMark: 10 * 1024 * 1024
         });
-        this.download(url).then(res => {
+        fetch(url.toString(), {
+            redirect: 'follow',
+            headers: {
+                'User-Agent': this.userAgent,
+            },
+        }).then(res => {
             if (!res.ok) {
-                pt.emit('close');
+                pt.end();
                 pt.destroy();
                 return;
             }
@@ -65,19 +72,24 @@ class WebLoader extends BaseService {
                 if (!finished) {  
                     this.logger.warn(this.identify(url), 'Trying to abort');
                     if (res.body) {
-                        (res.body as any).destroy();
+                        // res.body is actually a PassThrough, but types are messed up with node-fetch
+                        (res.body as unknown as Readable).destroy();
                     }
                 }
             });
+        }).catch(e => {
+            this.logger.warn(this.identify(url), 'Failed to download', e);
+            pt.emit('close');
+            pt.destroy();
         });
         
         return pt;
     }
 
-    private async download(url: URL, retry = 0): ReturnType<typeof fetch> {
-        const res = await fetch(url.toString());
-        return res;
-    }
+    // private async download(url: URL, maxRetries = 0): ReturnType<typeof fetch> {
+    //     const res = await fetch(url.toString(), { redirect: 'follow' });
+    //     return res;
+    // }
 
     private identify(obj: URL): number {
         if (!this.identifiers.has(obj)) {
