@@ -177,7 +177,7 @@ class AudioManagerService extends BaseService {
             }
 
             this.logger.info(human._s(cmd.Guild), `Added youtube playlist (${items.length} items) to queue`);
-            await cmd.reply({content: `Enqueued 👍\nSongs: ${items.length}; total time: ${human.time(items.reduce((sum, c) => sum + c.ContentDetails.Duration, 0))}`});
+            await cmd.reply({content: `Enqueued 👍\nSongs: ${items.length}; total time: ${human.timeSpan(items.reduce((sum, c) => sum + c.ContentDetails.Duration, 0))}`});
 
         } else if (link.type === 'video') {
             // enqueue song by id
@@ -234,7 +234,7 @@ class AudioManagerService extends BaseService {
         
         const selected = await cmd.CreateSelectPromt(
             searchResults.filter(
-                (_, i) => i < 10).map(c => `${c.Snippet.Title} ${human.time(c.ContentDetails.Duration)}`
+                (_, i) => i < 10).map(c => `${c.Snippet.Title} ${human.timeSpan(c.ContentDetails.Duration)}`
             ), (u, c) => u.id === cmd.User.id && c.id === cmd.Channel.id
         );
 
@@ -325,7 +325,7 @@ class AudioManagerService extends BaseService {
                         .setTitle(`**${g.Current.Video.Snippet.Title}**`)
                         .setURL(`https://youtu.be/${g.Current.Video.Id}`)
                         .setThumbnail(g.Current.Video.Snippet.bestThumbnail.Url)
-                        .addField(`${human.time(g.PlayDuration)}/${human.time(g.Current.Video.ContentDetails.Duration)}`, `\`\`\`[${begin}O${end}]\`\`\``)
+                        .addField(`${human.timeSpan(g.PlayDuration)}/${human.timeSpan(g.Current.Video.ContentDetails.Duration)}`, `\`\`\`[${begin}O${end}]\`\`\``)
                         .addField('Channel', g.Current.Video.Snippet.ChannelTitle, true)
                         .addField('Requested by', g.Current.Origin.User.nickname, true)
                         .setColor('#FF3DCD')
@@ -342,7 +342,7 @@ class AudioManagerService extends BaseService {
                         .setAuthor('Now playing')
                         .setTitle(`**${g.Current.Title}**`)
                         .setURL(g.Current.Url.toString())
-                        .addField(`${human.time(g.PlayDuration)}/${human.time(g.Current.Duration)}`, `\`\`\`[${begin}O${end}]\`\`\``)
+                        .addField(`${human.timeSpan(g.PlayDuration)}/${human.timeSpan(g.Current.Duration)}`, `\`\`\`[${begin}O${end}]\`\`\``)
                         .addField('Requested by', g.Current.Origin.User.nickname, true)
                         .setColor('#FF3DCD')
                 ]
@@ -371,13 +371,13 @@ class AudioManagerService extends BaseService {
             .setTitle(`Queue for ${cmd.Guild.name}`)
             .setDescription(`Loop: ${loopToEmoji[g.LoopMode]}`)
             .setColor('#FF3DCD')
-            .setFooter(`Total: ${g.Queue.length} songs | Duration: ${human.time(g.Queue.reduce((sum, c) => sum + (c.isYouTubeTrack() && c.Video.ContentDetails.Duration || 0), 0))}`);
+            .setFooter(`Total: ${g.Queue.length} songs | Duration: ${human.timeSpan(g.Queue.reduce((sum, c) => sum + (c.isYouTubeTrack() && c.Video.ContentDetails.Duration || 0), 0))}`);
         
         let nowText = '';
         if (g.Current.isYouTubeTrack()) {
-            nowText = `[${g.Current.Video.Snippet.Title}](https://youtu.be/${g.Current.Video.Id}) | ${human.time(g.Current.Video.ContentDetails.Duration)}`;
+            nowText = `[${g.Current.Video.Snippet.Title}](https://youtu.be/${g.Current.Video.Id}) | ${human.timeSpan(g.Current.Video.ContentDetails.Duration)}`;
         } else if (g.Current.isWebTrack()) {
-            nowText = `[${g.Current.Title}](${g.Current.Url.toString()}) | ${human.time(g.Current.Duration)}`;
+            nowText = `[${g.Current.Title}](${g.Current.Url.toString()}) | ${human.timeSpan(g.Current.Duration)}`;
         } else {
             nowText = 'I dont know what is it';
         }
@@ -385,9 +385,9 @@ class AudioManagerService extends BaseService {
         let queueText = '';
         for (const track of g.Queue.filter((_, i) => i <= 10)) {
             if (track.isYouTubeTrack()) {
-                queueText += `${index++}. [${track.Video.Snippet.Title}](https://youtu.be/${track.Video.Id}) | ${human.time(track.Video.ContentDetails.Duration)}\n`;
+                queueText += `${index++}. [${track.Video.Snippet.Title}](https://youtu.be/${track.Video.Id}) | ${human.timeSpan(track.Video.ContentDetails.Duration)}\n`;
             } else if (track.isWebTrack()) {
-                queueText += `${index++}. [${track.Title}](${track.Url.toString()}) | ${human.time(track.Duration)}\n`;
+                queueText += `${index++}. [${track.Title}](${track.Url.toString()}) | ${human.timeSpan(track.Duration)}\n`;
             } else {
                 queueText += `${index++}. I dont know what is it\n`;
             }

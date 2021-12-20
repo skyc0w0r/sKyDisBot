@@ -1,4 +1,4 @@
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 
 interface Config {
@@ -21,7 +21,7 @@ const DefaultConfig: Config = {
     COMMAND_PREFIX: '!',
     WEB_USER_AGENT: PLACEHOLDER,
 };
-const configPath = join(process.cwd(), 'config.json');
+const configPath = resolve(process.env.CONFIG_PATH || join(process.cwd(), 'config.json'));
 let CurrentConfig: Config | undefined = undefined;
 
 function checkConfig(): void {

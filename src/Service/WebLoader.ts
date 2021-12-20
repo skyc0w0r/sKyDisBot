@@ -43,13 +43,12 @@ class WebLoader extends BaseService {
             }
             const sz = parseInt(res.headers.get('content-length') || '0');
             // let szDown = 0;
-            this.logger.info(this.identify(url), 'Data size ', human.size(sz));
+            this.logger.info(this.identify(url), 'Data size', human.size(sz));
 
             let finished = false;
             res.body.on('data', (chunk) => {
                 // szDown += chunk.length;
                 // this.logger.trace(this.identify(url), 'progress', szDown, '/', sz);
-                // pt.emit('data', chunk);
                 pt.push(chunk);
             });
             res.body.on('close', () => {
@@ -61,7 +60,7 @@ class WebLoader extends BaseService {
             res.body.on('end', () => {
                 finished = true;
                 this.logger.info(this.identify(url), 'Download finished (>end)');
-                pt.emit('end');
+                pt.end();
             });
             res.body.on('error', (e) => {
                 this.logger.warn(this.identify(url), 'Download error', e);

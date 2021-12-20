@@ -10,6 +10,8 @@ import AudioManagerService from './Service/AudioManagerService.js';
 import { GlobalServiceManager } from './Service/ServiceManager.js';
 import CommandParserService from './Service/CommandParserService.js';
 import WebLoader from './Service/WebLoader.js';
+import { writeFileSync } from 'fs';
+import human from './human.js';
 
 async function main() {
     config.check();
@@ -38,35 +40,61 @@ async function main() {
     const dsrest = new DSRest.REST({
         version: '9',
     }).setToken(config.get().DIS_TOKEN);
-    try {
-        await dsrest.put(
-            DSTypes.Routes.applicationCommands(config.get().BOT_CLIENT_ID),
-            {body : cp.GetDiscordCommandsData() },
-        );
-    } catch (e) {
-        logger.fatal('Failed to registered commands', e);
-        return;
+    if (process.env.COMMANDS_GLOBAL?.toLowerCase() === 'set') {
+        try {
+            logger.info('Updating global commands');
+            await dsrest.put(
+                DSTypes.Routes.applicationCommands(config.get().BOT_CLIENT_ID),
+                {body : cp.GetDiscordCommandsData() },
+            );
+            logger.info('Global commands updated');
+        } catch (e) {
+            logger.fatal('Failed to update global commands', e);
+            return;
+        }
+    } else if (process.env.COMMANDS_GLOBAL?.toLowerCase() === 'unset') {
+        try {
+            logger.info('Removing global commands');
+            await dsrest.put(
+                DSTypes.Routes.applicationCommands(config.get().BOT_CLIENT_ID),
+                {body : [] },
+            );
+            logger.info('Global commands removed');
+        } catch (e) {
+            logger.fatal('Failed to remove global commands', e);
+            return;
+        }
     }
 
     cl.on('ready', async () => {
         logger.info('Discord client ready');
 
-        // await cl.guilds.fetch();
-        // let targets = cl.guilds.cache;
-        // if (config.get().TEST_GUILD_ID) {
-        //     targets = targets.filter(c => c.id === config.get().TEST_GUILD_ID);
-        // }
-        // for (const g of targets) {
-        //     // add commands
-        //     await g[1].commands.set(cp.GetDiscordCommandsData());
-        //     // remove commands
-        //     // const cmds = await g[1].commands.fetch();
-        //     // for (const c of cmds) {
-        //     //     await g[1].commands.delete(c[1]);
-        //     // }
-        // }
-        
-        // logger.info('Commands set');
+        if (process.env.COMMANDS_LOCAL?.toLocaleLowerCase() === 'set') {
+            logger.info('Updating guild commands');
+            await cl.guilds.fetch();
+            let targets = cl.guilds.cache;
+            if (config.get().TEST_GUILD_ID) {
+                targets = targets.filter(c => c.id === config.get().TEST_GUILD_ID);
+            }
+            for (const g of targets) {
+                await g[1].commands.set(cp.GetDiscordCommandsData());
+            }
+            logger.info('Guild commands set');
+        } else if (process.env.COMMANDS_LOCAL?.toLocaleLowerCase() === 'unset') {
+            logger.info('Removing guild commands');
+            await cl.guilds.fetch();
+            let targets = cl.guilds.cache;
+            if (config.get().TEST_GUILD_ID) {
+                targets = targets.filter(c => c.id === config.get().TEST_GUILD_ID);
+            }
+            for (const g of targets) {
+                const cmds = await g[1].commands.fetch();
+                for (const c of cmds) {
+                    await g[1].commands.delete(c[1]);
+                }
+            }
+            logger.info('Guild commands removed');
+        }
     });
 
     cl.on('interactionCreate', async (inter) => {
@@ -103,4 +131,7 @@ async function main() {
     proccess.on('SIGTERM', bye);
 }
 
-main();
+main().catch((e: Error) => {
+    console.error('Fatal error', e);
+    writeFileSync(`crash_${human.dateTime(new Date())}.txt`, `Name: ${e.name}\nMessage: ${e.message}\nStack?: ${e.stack}`, {encoding: 'utf-8'});
+});

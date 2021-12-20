@@ -2,7 +2,7 @@ import Discord from 'discord.js';
 import { GuildAudioPlayer } from './Class/GuildAudioPlayer.js';
 import CommandParserService from './Service/CommandParserService.js';
 
-function time(seconds: number): string {
+function timeSpan(seconds: number): string {
     const s = seconds % 60;
     const m = Math.floor(seconds / 60) % 60;
     const h = Math.floor(seconds / 3600);
@@ -25,11 +25,24 @@ function size(bytes: number): string {
     return `${prefix} ${postfixes[index]}`;
 }
 
-function date(date: Date): string {
+function _date(date: Date): string {
     const y = date.getFullYear();
     const m = (date.getMonth()+1).toString().padStart(2, '0');
     const d = date.getDate().toString().padStart(2, '0');
     return `${y}-${m}-${d}`;
+}
+
+function _time(date: Date, withMs = false): string {
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    const s = date.getSeconds().toString().padStart(2, '0');
+    const ms = date.getMilliseconds().toString().padStart(3, '0');
+
+    return `${h}.${m}.${s}${withMs && ('.' + ms)}`;
+}
+
+function _dateTime(date: Date): string {
+    return `${_date(date)}_${_time(date, true)}`;
 }
 
 function _s<T = unknown>(o: T): string {
@@ -64,8 +77,10 @@ function _s<T = unknown>(o: T): string {
 }
 
 export default {
-    time,
+    timeSpan,
     size,
-    date,
+    date: _date,
+    time: _time,
+    dateTime: _dateTime,
     _s,
 };

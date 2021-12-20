@@ -126,13 +126,13 @@ class AudioConverter extends BaseService {
             });
             child.on('close', () => {
                 const artistGroups = artistRe.exec(text);
-                const artist = artistGroups?.length > 1 ? artistGroups[1].trim() : '' ?? '';
+                const artist = artistGroups?.groups?.target?.trim() ?? '';
                 
                 const titleGroups = titleRe.exec(text);
-                const title = titleGroups?.length > 1 ? titleGroups[1].trim() : '' ?? '';
+                const title = titleGroups?.groups?.target?.trim() ?? '';
 
                 const duraGroups = durationRe.exec(text);
-                const dura = duraGroups?.length > 1 ? duraGroups[1].trim() : '00:00:00' ?? '00:00:00';
+                const dura = duraGroups?.groups?.target?.trim() ?? '00:00:00';
 
                 let duration = 0;
                 let multiplier = 3600;
@@ -160,8 +160,8 @@ class AudioConverter extends BaseService {
     }
 }
 
-const artistRe = new RegExp('\\s+ARTIST\\s+: ([^ ]+)');
-const titleRe = new RegExp('\\s+TITLE\\s+: ([^ ]+)');
-const durationRe = new RegExp('\\s+Duration: ([0-9\\:]+)');
+const artistRe = new RegExp('\\s+(ARTIST|artist)\\s+: (?<target>[^\\n$]+)');
+const titleRe = new RegExp('\\s+(TITLE|title)\\s+: (?<target>[^\\n$]+)');
+const durationRe = new RegExp('\\s+(Duration: |time=)(?<target>[0-9\\:]+)');
 
 export default AudioConverter;

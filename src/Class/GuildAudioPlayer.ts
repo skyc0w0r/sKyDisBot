@@ -157,7 +157,7 @@ export class GuildAudioPlayer extends EventEmitter {
                 this.queue.shift();
             }
             this.player.stop();
-            this.current.Cleanup();
+            // this.current.Cleanup();
         }
     }
 
@@ -251,6 +251,10 @@ export class GuildAudioPlayer extends EventEmitter {
     }
 
     private checkQueue(): void {
+        if (this.current) {
+            this.current.Cleanup();
+        }
+
         if (this.queueLock
             || this.player?.state?.status !== AudioPlayerStatus.Idle
             || this.voice?.state?.status !== VoiceConnectionStatus.Ready
@@ -262,7 +266,7 @@ export class GuildAudioPlayer extends EventEmitter {
 
         this.queueLock = true;
         if (this.current) {
-            this.current.Cleanup();
+            // this.current.Cleanup();
             
             if (this.LoopMode === 'one') {
                 this.queue.unshift(this.current);

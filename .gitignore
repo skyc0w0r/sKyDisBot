@@ -30,7 +30,8 @@ build/
 .DS_Store
 
 # user's
-config.json
+config*.json
 database.json
 cache/
 log4js.config.json
+crash*.txt
