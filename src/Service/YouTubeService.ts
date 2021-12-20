@@ -85,7 +85,7 @@ class YouTubeService extends BaseService {
     public getAudioStream(id: string): Readable {
         // return ytdl(id, { filter: 'audioonly' });
         const pt = new PassThrough({
-            highWaterMark: 10 * 1024 * 1024
+            highWaterMark: 10 * 1024 * 1024,
         });
         let finished = false;
         let validTrack = false;
@@ -102,7 +102,7 @@ class YouTubeService extends BaseService {
             });
             src.on('close', () => {
                 if (!finished) {
-                    pt.emit('close');
+                    pt.destroy();
                     resolve();
                 }
             });

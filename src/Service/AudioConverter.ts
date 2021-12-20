@@ -58,18 +58,22 @@ class AudioConverter extends BaseService {
             '-ar', '48000',
             'pipe:1',
         ]);
-    
+        
+        let finished = false;
         sourceStream.on('error', (err) => {
             this.logger.debug(this.identify(sourceStream), 'Could not convert stream', err);
             this.abortConvertion(res);
             pt.emit('error', err);
         });
         sourceStream.on('end', () => {
+            finished = true;
             this.logger.debug(this.identify(sourceStream), 'Stream converted (>end)');
         });
         sourceStream.on('close', () => {
             this.logger.debug(this.identify(sourceStream), 'Stream destroyed (>close)');
-            this.abortConvertion(res);
+            if (!finished) {
+                this.abortConvertion(res);
+            }
         });
     
         child.stdin.on('error', (e) => this.logger.warn(this.identify(sourceStream), 'in', e));
