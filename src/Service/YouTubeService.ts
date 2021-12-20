@@ -87,6 +87,7 @@ class YouTubeService extends BaseService {
         const pt = new PassThrough({
             highWaterMark: 10 * 1024 * 1024
         });
+        let finished = false;
         let validTrack = false;
         const watchIt = (begin = 0, retry = 0) => new Promise<void>((resolve) => {
             const src = ytdl(id, { filter: 'audioonly' });
@@ -100,11 +101,14 @@ class YouTubeService extends BaseService {
                 }
             });
             src.on('close', () => {
-                pt.emit('close');
-                resolve();
+                if (!finished) {
+                    pt.emit('close');
+                    resolve();
+                }
             });
             src.on('end', () => {
-                pt.emit('end');
+                finished = true;
+                pt.end();
                 resolve();
             });
             src.on('error', (e) => {
@@ -122,7 +126,7 @@ class YouTubeService extends BaseService {
                 resolve();
             });
             pt.on('close', () => {
-                if (src) {
+                if (src && !finished) {
                     src.destroy();
                 }
             });

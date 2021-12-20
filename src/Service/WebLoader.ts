@@ -68,12 +68,10 @@ class WebLoader extends BaseService {
             });
 
             pt.on('close', () => {
-                if (!finished) {  
+                if (res.body && !finished) {  
                     this.logger.warn(this.identify(url), 'Trying to abort');
-                    if (res.body) {
-                        // res.body is actually a PassThrough, but types are messed up with node-fetch
-                        (res.body as unknown as Readable).destroy();
-                    }
+                    // res.body is actually a PassThrough, but types are messed up with node-fetch
+                    (res.body as unknown as Readable).destroy();
                 }
             });
         }).catch(e => {
