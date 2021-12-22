@@ -231,6 +231,9 @@ export class GuildAudioPlayer extends EventEmitter {
         // Finished playing
         if (oldS.status !== DSVoice.AudioPlayerStatus.Idle && newS.status === DSVoice.AudioPlayerStatus.Idle) {
             this.logger.debug(human._s(this), 'Player finished playing');
+            if (this.current) {
+                this.current.Cleanup();
+            }
             this.checkQueue();
         // Started buffering
         } else if (oldS.status === DSVoice.AudioPlayerStatus.Idle && newS.status === DSVoice.AudioPlayerStatus.Buffering) {
@@ -251,10 +254,6 @@ export class GuildAudioPlayer extends EventEmitter {
     }
 
     private checkQueue(): void {
-        if (this.current) {
-            this.current.Cleanup();
-        }
-
         if (this.queueLock
             || this.player?.state?.status !== AudioPlayerStatus.Idle
             || this.voice?.state?.status !== VoiceConnectionStatus.Ready
