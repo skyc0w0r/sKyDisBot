@@ -1,5 +1,4 @@
 import Discord from 'discord.js';
-import DSRest from '@discordjs/rest';
 import DSTypes from 'discord-api-types/v9';
 import Logger from 'log4js';
 import proccess from 'process';
@@ -12,6 +11,7 @@ import CommandParserService from './Service/CommandParserService.js';
 import WebLoader from './Service/WebLoader.js';
 import { writeFileSync } from 'fs';
 import human from './human.js';
+import { REST } from '@discordjs/rest';
 
 async function main() {
     config.check();
@@ -37,7 +37,7 @@ async function main() {
         intents: ['GUILDS', 'GUILD_MESSAGES', 'GUILD_VOICE_STATES']
     });
 
-    const dsrest = new DSRest.REST({
+    const dsrest = new REST({
         version: '9',
     }).setToken(config.get().DIS_TOKEN);
     if (process.env.COMMANDS_GLOBAL?.toLowerCase() === 'set') {

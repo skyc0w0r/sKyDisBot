@@ -233,9 +233,10 @@ class AudioManagerService extends BaseService {
         }
         
         const selected = await cmd.CreateSelectPromt(
-            searchResults.filter(
-                (_, i) => i < 10).map(c => `${c.Snippet.Title} ${human.timeSpan(c.ContentDetails.Duration)}`
-            ), (u, c) => u.id === cmd.User.id && c.id === cmd.Channel.id
+            searchResults
+                .filter((_, i) => i < 10)
+                .map(c => `${c.Snippet.Title} ${human.timeSpan(c.ContentDetails.Duration)}`),
+            (u, c) => u.id === cmd.User.id && c.id === cmd.Channel.id
         );
 
         if (selected === 'cancel' || selected === 'timeout') {

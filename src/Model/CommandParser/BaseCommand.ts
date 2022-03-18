@@ -9,7 +9,7 @@ export class BaseCommand {
     public get User(): Discord.GuildMember {
         return this.user;
     }
-    public get Channel(): Discord.TextBasedChannels {
+    public get Channel(): Discord.TextBasedChannel {
         if (this.isByInteraction()) {
             return this.Interaction.channel;
         }

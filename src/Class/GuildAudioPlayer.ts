@@ -1,10 +1,10 @@
 import Discord from 'discord.js';
-import DSVoice, { AudioPlayerStatus, VoiceConnectionStatus } from '@discordjs/voice';
 import Logger from 'log4js';
 import human from '../human.js';
 import { AudioTrack } from '../Model/AudioManager/index.js';
 import EventEmitter from 'events';
 import { LoopMode } from '../Interface/LoopMode.js';
+import { AudioPlayer, AudioPlayerState, AudioPlayerStatus, createAudioResource, DiscordGatewayAdapterCreator, entersState, joinVoiceChannel, StreamType, VoiceConnection, VoiceConnectionDisconnectReason, VoiceConnectionState, VoiceConnectionStatus } from '@discordjs/voice';
 
 interface GuildAudioPlayerEvents {
     trackError: (track: AudioTrack) => void
@@ -50,8 +50,8 @@ export class GuildAudioPlayer extends EventEmitter {
     private guild: Discord.Guild;
     private channel?: Discord.VoiceChannel;
 
-    private voice: DSVoice.VoiceConnection;
-    private player: DSVoice.AudioPlayer;
+    private voice: VoiceConnection;
+    private player: AudioPlayer;
     private connectLock: boolean;
 
     private current: AudioTrack;
@@ -97,12 +97,12 @@ export class GuildAudioPlayer extends EventEmitter {
                 return;
             }
         }
-        this.voice = DSVoice.joinVoiceChannel({
+        this.voice = joinVoiceChannel({
             guildId: this.guild.id,
             channelId: channel.id,
-            adapterCreator: this.guild.voiceAdapterCreator as unknown as DSVoice.DiscordGatewayAdapterCreator
+            adapterCreator: this.guild.voiceAdapterCreator as unknown as DiscordGatewayAdapterCreator
         });
-        this.player = new DSVoice.AudioPlayer();
+        this.player = new AudioPlayer();
         this.voice.on('stateChange', this.onVoiceStateChanged);
         this.voice.on('error', (e) => {
             this.logger.warn(human._s(this), 'Voice error', e.name, e.message);
@@ -129,8 +129,8 @@ export class GuildAudioPlayer extends EventEmitter {
 
         if (this.voice) {
             this.voice.removeListener('stateChange', this.onVoiceStateChanged);
-            if (this.voice.state.status !== DSVoice.VoiceConnectionStatus.Destroyed) {
-                if (this.voice.state.status !== DSVoice.VoiceConnectionStatus.Disconnected) {
+            if (this.voice.state.status !== VoiceConnectionStatus.Destroyed) {
+                if (this.voice.state.status !== VoiceConnectionStatus.Disconnected) {
                     this.voice.disconnect();
                 }
                 this.voice.destroy();  
@@ -165,10 +165,10 @@ export class GuildAudioPlayer extends EventEmitter {
         if (!this.player) {
             return false;
         }
-        if (this.player.state.status === DSVoice.AudioPlayerStatus.Playing) {
+        if (this.player.state.status === AudioPlayerStatus.Playing) {
             this.player.pause();
             return true;
-        } else if (this.player.state.status === DSVoice.AudioPlayerStatus.Paused) {
+        } else if (this.player.state.status === AudioPlayerStatus.Paused) {
             this.player.unpause();
             return true;
         }
@@ -184,15 +184,15 @@ export class GuildAudioPlayer extends EventEmitter {
         return true;
     }
 
-    private async onVoiceStateChanged(oldS: DSVoice.VoiceConnectionState, newS: DSVoice.VoiceConnectionState): Promise<void> {
+    private async onVoiceStateChanged(oldS: VoiceConnectionState, newS: VoiceConnectionState): Promise<void> {
         // this.logger.debug(human._s(this.guild), 'voice state from', oldS.status, 'to', newS.status);
 
-        if (newS.status === DSVoice.VoiceConnectionStatus.Disconnected) {
+        if (newS.status === VoiceConnectionStatus.Disconnected) {
             this.logger.debug(human._s(this), 'Voice disconnected');
             // try to reconnect by websocket
-            if (newS.reason === DSVoice.VoiceConnectionDisconnectReason.WebSocketClose && newS.closeCode === 4014) {
+            if (newS.reason === VoiceConnectionDisconnectReason.WebSocketClose && newS.closeCode === 4014) {
                 try {
-                    await DSVoice.entersState(this.voice, DSVoice.VoiceConnectionStatus.Connecting, 5e3);
+                    await entersState(this.voice, VoiceConnectionStatus.Connecting, 5e3);
                 } catch (e) {
                     this.leaveVoice();
                 }
@@ -204,49 +204,49 @@ export class GuildAudioPlayer extends EventEmitter {
             } else {
                 this.leaveVoice();
             }
-        } else if (newS.status === DSVoice.VoiceConnectionStatus.Destroyed) {
+        } else if (newS.status === VoiceConnectionStatus.Destroyed) {
             this.leaveVoice();
         // we are connecting
-        } else if (!this.connectLock && (newS.status === DSVoice.VoiceConnectionStatus.Connecting || newS.status === DSVoice.VoiceConnectionStatus.Signalling)) {
+        } else if (!this.connectLock && (newS.status === VoiceConnectionStatus.Connecting || newS.status === VoiceConnectionStatus.Signalling)) {
             this.logger.debug(human._s(this), 'Trying to connect to voice');
             this.connectLock = true;
 
             try {
                 // to prevent endless connecting, limiting it to 20s
-                await DSVoice.entersState(this.voice, DSVoice.VoiceConnectionStatus.Ready, 20e3);
+                await entersState(this.voice, VoiceConnectionStatus.Ready, 20e3);
             } catch (e) {
                 this.logger.error(human._s(this), 'Failed to join guild', e);
                 this.leaveVoice();
             } finally {
                 this.connectLock = false;
             }
-        } else if (newS.status === DSVoice.VoiceConnectionStatus.Ready) {
+        } else if (newS.status === VoiceConnectionStatus.Ready) {
             this.logger.debug(human._s(this), 'Connected to voice');
             this.checkQueue();
         }
     }
 
-    private async onPlayerStateChanged(oldS: DSVoice.AudioPlayerState, newS: DSVoice.AudioPlayerState): Promise<void> {
+    private async onPlayerStateChanged(oldS: AudioPlayerState, newS: AudioPlayerState): Promise<void> {
         // this.logger.debug(human._s(this.guild), 'player state from', oldS.status, 'to', newS.status);
         // Finished playing
-        if (oldS.status !== DSVoice.AudioPlayerStatus.Idle && newS.status === DSVoice.AudioPlayerStatus.Idle) {
+        if (oldS.status !== AudioPlayerStatus.Idle && newS.status === AudioPlayerStatus.Idle) {
             this.logger.debug(human._s(this), 'Player finished playing');
             if (this.current) {
                 this.current.Cleanup();
             }
             this.checkQueue();
         // Started buffering
-        } else if (oldS.status === DSVoice.AudioPlayerStatus.Idle && newS.status === DSVoice.AudioPlayerStatus.Buffering) {
+        } else if (oldS.status === AudioPlayerStatus.Idle && newS.status === AudioPlayerStatus.Buffering) {
             this.logger.debug(human._s(this), 'Player acknowledged new track');
             this.isPlayerSignalled = false;
         // Started playing
-        } else if (oldS.status === DSVoice.AudioPlayerStatus.Buffering && newS.status === DSVoice.AudioPlayerStatus.Playing) {
+        } else if (oldS.status === AudioPlayerStatus.Buffering && newS.status === AudioPlayerStatus.Playing) {
             this.lastPlayStarted = new Date();
         // Paused
-        } else if (oldS.status === DSVoice.AudioPlayerStatus.Playing && newS.status === DSVoice.AudioPlayerStatus.Paused) {
+        } else if (oldS.status === AudioPlayerStatus.Playing && newS.status === AudioPlayerStatus.Paused) {
             this.lastPaused = new Date();
         // Unpaused
-        } else if (oldS.status === DSVoice.AudioPlayerStatus.Paused && newS.status === DSVoice.AudioPlayerStatus.Playing) {
+        } else if (oldS.status === AudioPlayerStatus.Paused && newS.status === AudioPlayerStatus.Playing) {
             if (this.lastPaused) {
                 this.pauseDuration = (this.pauseDuration || 0) + (new Date().getTime() - this.lastPaused.getTime());
             } 
@@ -283,7 +283,7 @@ export class GuildAudioPlayer extends EventEmitter {
 
         const t = this.queue.shift();
         try {
-            const audioRes = DSVoice.createAudioResource<AudioTrack>(t.CreateReadable(), {inputType: DSVoice.StreamType.OggOpus, metadata: t});
+            const audioRes = createAudioResource<AudioTrack>(t.CreateReadable(), {inputType: StreamType.OggOpus, metadata: t});
             this.isPlayerSignalled = true;
             this.player.play(audioRes);
             this.current = t;
