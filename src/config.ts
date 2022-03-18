@@ -9,6 +9,7 @@ interface Config {
     TEST_GUILD_ID: string
     COMMAND_PREFIX: string
     WEB_USER_AGENT: string
+    YT_CUSTOM_COOKIE: string
 }
 
 const PLACEHOLDER = '[change_me]';
@@ -20,6 +21,7 @@ const DefaultConfig: Config = {
     TEST_GUILD_ID: PLACEHOLDER,
     COMMAND_PREFIX: '!',
     WEB_USER_AGENT: PLACEHOLDER,
+    YT_CUSTOM_COOKIE: '',
 };
 const configPath = resolve(process.env.CONFIG_PATH || join(process.cwd(), 'config.json'));
 let CurrentConfig: Config | undefined = undefined;

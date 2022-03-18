@@ -8,6 +8,7 @@ import PlaylistItemListResponse from '../Model/YouTube/PlaylistItemListResponse.
 import SearchResponse from '../Model/YouTube/SearchResponse.js';
 import Video from '../Model/YouTube/Video.js';
 import VideosResponse from '../Model/YouTube/VideosResponse.js';
+import config from '../config.js';
 
 const YT_BASE_DATA_API_ADDRESS = 'https://youtube.googleapis.com/youtube/v3';
 
@@ -90,7 +91,15 @@ class YouTubeService extends BaseService {
         let finished = false;
         let validTrack = false;
         const watchIt = (begin = 0, retry = 0) => new Promise<void>((resolve) => {
-            const src = ytdl(id, { filter: 'audioonly' });
+            const opts: ytdl.downloadOptions = { filter: 'audioonly' };
+            if (config.get().YT_CUSTOM_COOKIE) {
+                opts.requestOptions = {
+                    headers: {
+                        cookie: config.get().YT_CUSTOM_COOKIE
+                    }
+                };
+            }
+            const src = ytdl(id, opts);
             let len = 0;
             src.on('data', (chunk: Uint8Array) => {
                 validTrack = true;
