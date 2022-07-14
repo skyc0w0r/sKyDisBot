@@ -58,8 +58,28 @@ class AudioManagerService extends BaseService {
                 }
             ]
         });
+        cp.RegisterCommand('playtop', (c) => this.playYTLink(c, true), {
+            description: '[Queue top]Play video/playlist from youtube. Also search&select first result',
+            options: [
+                {
+                    id: 'link',
+                    description: 'Link for youtube video/Search query',
+                    required: true,
+                }
+            ]
+        });
         cp.RegisterCommand('direct', (c) => this.playDirectLink(c), {
             description: 'Plays audio file from web link',
+            options: [
+                {
+                    id: 'url',
+                    description: 'DIRECT url for audio file',
+                    required: true,
+                }
+            ]
+        });
+        cp.RegisterCommand('directtop', (c) => this.playDirectLink(c, true), {
+            description: '[Queue top]Plays audio file from web link',
             options: [
                 {
                     id: 'url',
@@ -91,18 +111,28 @@ class AudioManagerService extends BaseService {
         cp.RegisterCommand('last', (c) => this.playLast(c), {description: 'Adds last track to queue'});
         cp.RegisterCommand('pause', (c) => this.pause(c), {description: 'Pauses and unpauses player'});
         cp.RegisterCommand('leave', (c) => this.leave(c), {description: 'Disconnect from voice channel'});
-        cp.RegisterCommand('skip', (c) => this.skip(c), {description: 'Skips current playing track'});
+        cp.RegisterCommand('skip', (c) => this.skip(c), {
+            description: 'Skips current playing track or n next tracks',
+            options: [
+                {
+                    description: 'Number of tracks to skip',
+                    id: 'n',
+                    required: false
+                }
+            ]
+        });
         cp.RegisterCommand('np', (c) => this.currentPlaying(c), {description: 'Shows currently playing track'});
         cp.RegisterCommand('queue', (c) => this.printQueue(c), {description: 'Shows track queue'});
         cp.RegisterCommand('summon', (c) => this.summon(c), {description: '(Re)Joins voice channel'});
         cp.RegisterAlias('p', 'audio play');
+        cp.RegisterAlias('pt', 'audio playtop');
         cp.RegisterAlias('s', 'audio skip');
         cp.RegisterAlias('q', 'audio queue');
     }
     public Destroy(): void {
         Object.keys(this.players).map(c => this.players[c].leaveVoice());
     }
-    
+
 
     private async wrapper(cmd: BaseCommand, callback: CommandCallback): Promise<void> {
         try {
@@ -118,7 +148,7 @@ class AudioManagerService extends BaseService {
     }
 
     // audio direct
-    private async playDirectLink(cmd: BaseCommand): Promise<void> {
+    private async playDirectLink(cmd: BaseCommand, isTop = false): Promise<void> {
         if (!cmd.User.voice.channel) {
             await cmd.reply({content: 'Join voice first!'});
             return;
@@ -135,7 +165,7 @@ class AudioManagerService extends BaseService {
             return;
         }
         const track = this.createWebTrack(cmd, url);
-        p.enqueue(track);
+        p.enqueue(track, isTop);
         this.setLastTrack(cmd.User, track);
 
         this.logger.info(human._s(cmd.Guild), `Added direct link track ${track.Url.toString()} to queue`);
@@ -143,7 +173,7 @@ class AudioManagerService extends BaseService {
     }
 
     // audio play
-    private async playYTLink(cmd: BaseCommand): Promise<void> {
+    private async playYTLink(cmd: BaseCommand, isTop = false): Promise<void> {
         if (!cmd.User.voice.channel) {
             await cmd.reply({content: 'Join voice first!'});
             return;
@@ -159,9 +189,9 @@ class AudioManagerService extends BaseService {
             if (searchres.length === 0) {
                 await cmd.reply({content: 'No results'});
                 return;
-            }         
-            const track = this.createYTReadable(cmd, searchres[0]);   
-            p.enqueue(track);
+            }
+            const track = this.createYTReadable(cmd, searchres[0]);
+            p.enqueue(track, isTop);
             this.setLastTrack(cmd.User, track);
 
             this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${searchres[0].Id}) to queue`);
@@ -173,7 +203,7 @@ class AudioManagerService extends BaseService {
             const items = await this.youtube.getPlaylist(link.list);
             for (const vid of items) {
                 // enqueue song by id
-                p.enqueue(this.createYTReadable(cmd, vid));
+                p.enqueue(this.createYTReadable(cmd, vid), isTop);
             }
 
             this.logger.info(human._s(cmd.Guild), `Added youtube playlist (${items.length} items) to queue`);
@@ -183,7 +213,7 @@ class AudioManagerService extends BaseService {
             // enqueue song by id
             const vid = await this.youtube.getVideoInfo(link.vid);
             const track = this.createYTReadable(cmd, vid);
-            p.enqueue(track);
+            p.enqueue(track, isTop);
             this.setLastTrack(cmd.User, track);
 
             this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${vid.Id}) to queue`);
@@ -231,7 +261,7 @@ class AudioManagerService extends BaseService {
             await cmd.reply({content: 'No results'});
             return;
         }
-        
+
         const selected = await cmd.CreateSelectPromt(
             searchResults
                 .filter((_, i) => i < 10)
@@ -251,7 +281,7 @@ class AudioManagerService extends BaseService {
         this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${vid.Id}) to queue`);
         await cmd.reply(this.displayYTtrack(vid));
     }
-    
+
     private async notifyError(track: AudioTrack) {
         await track.Origin.reply({content: `Failed to play **${track.Title}**, try again`});
     }
@@ -259,20 +289,20 @@ class AudioManagerService extends BaseService {
     // audio pause
     private async pause(cmd: BaseCommand): Promise<void> {
         const p = this.getGuildPlayer(cmd.Guild);
-        
+
         if (p.togglePause()) {
             await cmd.reply({content: '(Un)Paused 👍'});
         } else {
             await cmd.reply({content: 'Nothing playing/Nothing to play 💤'});
-        } 
+        }
     }
 
     // audio loop
     private async toggleLoop(cmd: BaseCommand): Promise<void> {
         const p = this.getGuildPlayer(cmd.Guild);
-        
+
         const mode = cmd.Params['mode'].value;
-        
+
         if (p.toggleLoop(mode as LoopMode)) {
             await cmd.reply({content: `Loop mode set to **${mode}**`});
         } else {
@@ -283,7 +313,17 @@ class AudioManagerService extends BaseService {
     // audio skip
     private async skip(cmd: BaseCommand): Promise<void> {
         const p = this.getGuildPlayer(cmd.Guild);
-        p.skip();
+        let skipCount = 1;
+        const param = cmd.Params['n'];
+        if (param) {
+            try {
+                skipCount = parseInt(param.value);
+            }
+            catch (e) {
+                // whatever
+            }
+        }
+        p.skip(skipCount);
         await cmd.reply({content: 'Skipped 👍'});
     }
 
@@ -306,7 +346,7 @@ class AudioManagerService extends BaseService {
         p.leaveVoice();
         await cmd.reply({content: 'Bye 👋'});
     }
-    
+
     // audio np
     private async currentPlaying(cmd: BaseCommand): Promise<void> {
         const g = this.getGuildPlayer(cmd.Guild);
@@ -361,7 +401,7 @@ class AudioManagerService extends BaseService {
             await cmd.reply({content: 'Nothing in queue 🥺'});
             return;
         }
-        
+
         const loopToEmoji = {
             'none': '➡',
             'one': '🔂',
@@ -372,8 +412,10 @@ class AudioManagerService extends BaseService {
             .setTitle(`Queue for ${cmd.Guild.name}`)
             .setDescription(`Loop: ${loopToEmoji[g.LoopMode]}`)
             .setColor('#FF3DCD')
-            .setFooter(`Total: ${g.Queue.length} songs | Duration: ${human.timeSpan(g.Queue.reduce((sum, c) => sum + (c.isYouTubeTrack() && c.Video.ContentDetails.Duration || 0), 0))}`);
-        
+            .setFooter({
+                text: `Total: ${g.Queue.length} songs | Duration: ${human.timeSpan(g.Queue.reduce((sum, c) => sum + c.Duration, 0))}`
+            });
+
         let nowText = '';
         if (g.Current.isYouTubeTrack()) {
             nowText = `[${g.Current.Video.Snippet.Title}](https://youtu.be/${g.Current.Video.Id}) | ${human.timeSpan(g.Current.Video.ContentDetails.Duration)}`;

@@ -60,8 +60,8 @@ export class BaseCommand {
         if (this.isByMessage()) {
             return await this.Channel.send(content);
         } else if (this.isByInteraction()) {
-            if (!this.Interaction.replied) {
-                return await this.Interaction.followUp(content) as Discord.Message;
+            if (new Date().getTime() - this.Interaction.createdAt.getTime() < 15 * 60 * 1000) {
+                return await this.Interaction.followUp(content as any) as Discord.Message;
             } else {
                 return await this.Interaction.channel.send(content);
             }

@@ -9,6 +9,9 @@ export class YouTubeTrack extends AudioTrack {
         return this.Video.Snippet?.Title || super.Title;
     }
     public Video: Video;
+    public override get Duration(): number {
+      return this.Video?.ContentDetails.Duration || 0;
+    }
 
     constructor(origin: BaseCommand, vid: Video, yt: YouTubeService, converter: AudioConverter) {
         super(origin, converter, () => yt.getAudioStream(vid.Id));

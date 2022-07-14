@@ -58,7 +58,7 @@ export class GuildAudioPlayer extends EventEmitter {
     private queue: Array<AudioTrack>;
     private queueLock: boolean;
     private loopMode: LoopMode;
-    
+
     private lastPlayStarted?: Date;
     private lastPaused?: Date;
     private pauseDuration?: number;
@@ -86,7 +86,7 @@ export class GuildAudioPlayer extends EventEmitter {
      * Joins voice channel
      * @param channel Voice channel to join
      * @param force If true, will leave the current and join new
-     * @returns 
+     * @returns
      */
     public async joinVoice(channel: Discord.VoiceChannel, force = false): Promise<void> {
         if (!force && this.channel && this.voice) {
@@ -120,7 +120,7 @@ export class GuildAudioPlayer extends EventEmitter {
 
     public leaveVoice(): void {
         this.logger.info(human._s(this), 'Requested voice channel leave');
-        
+
         this.queue = [];
         if (this.player) {
             this.player.removeListener('stateChange', this.onPlayerStateChanged);
@@ -133,8 +133,8 @@ export class GuildAudioPlayer extends EventEmitter {
                 if (this.voice.state.status !== VoiceConnectionStatus.Disconnected) {
                     this.voice.disconnect();
                 }
-                this.voice.destroy();  
-            }  
+                this.voice.destroy();
+            }
         }
 
         if (this.current) {
@@ -145,17 +145,19 @@ export class GuildAudioPlayer extends EventEmitter {
         this.current = undefined;
     }
 
-    public enqueue(track: AudioTrack): void {
-        this.queue.push(track);
+    public enqueue(track: AudioTrack, isTop = false): void {
+        if (isTop) this.queue.unshift(track);
+        else this.queue.push(track);
         this.checkQueue();
     }
 
-    public skip(): void {
+    public skip(skipCount = 1): void {
         if (this.current) {
-            this.logger.info(human._s(this), 'Skipping track');
+            this.logger.info(human._s(this), `Skipping ${skipCount} track(s)`);
             if (this.loopMode === 'one') {
                 this.queue.shift();
             }
+            this.queue.splice(0, skipCount - 1);
             this.player.stop();
             // this.current.Cleanup();
         }
@@ -249,7 +251,7 @@ export class GuildAudioPlayer extends EventEmitter {
         } else if (oldS.status === AudioPlayerStatus.Paused && newS.status === AudioPlayerStatus.Playing) {
             if (this.lastPaused) {
                 this.pauseDuration = (this.pauseDuration || 0) + (new Date().getTime() - this.lastPaused.getTime());
-            } 
+            }
         }
     }
 
@@ -266,7 +268,7 @@ export class GuildAudioPlayer extends EventEmitter {
         this.queueLock = true;
         if (this.current) {
             // this.current.Cleanup();
-            
+
             if (this.LoopMode === 'one') {
                 this.queue.unshift(this.current);
             } else if (this.loopMode === 'all') {
@@ -275,7 +277,7 @@ export class GuildAudioPlayer extends EventEmitter {
                 // this.current.Cleanup();
             }
         }
-        
+
         if (this.queue.length === 0) {
             this.queueLock = false;
             return;

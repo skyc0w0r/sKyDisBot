@@ -6,19 +6,22 @@ import { BaseCommand } from '../CommandParser/index.js';
 import { AudioTrack } from './index.js';
 
 export class WebTrack extends AudioTrack {
-    public Url: URL; 
+    public Url: URL;
     public override get Title(): string {
         return this.title;
     }
     private title: string;
-    public Duration: number;
+    public override get Duration(): number {
+      return this.duration;
+    }
+    private duration: number;
 
     constructor(origin: BaseCommand, url: URL, web: WebLoader, converter: AudioConverter) {
         super(origin, converter, () => web.getReadableFromUrl(url));
 
         this.Url = url;
         this.title = path.basename(decodeURI(this.Url.pathname));
-        this.Duration = 0;
+        this.duration = 0;
     }
 
     override CreateReadable(): Readable {
@@ -43,7 +46,7 @@ export class WebTrack extends AudioTrack {
                 }
                 this.title = meta.Title;
             }
-            this.Duration = meta.Duration;
+            this.duration = meta.Duration;
         });
 
         this.info = this.audioConverter.convertForDis(pt2);

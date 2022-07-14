@@ -27,7 +27,7 @@ class YouTubeService extends BaseService {
     public Destroy(): void {
         return;
     }
-    
+
 
     public async getVideoInfo(id: string): Promise<Video | null> {
         const r = await this.getData('videos', VideosResponse, {
@@ -73,11 +73,12 @@ class YouTubeService extends BaseService {
                 id: r1.Items.map(c => c.Snippet.ResourceId).join(','),
             });
             items.push(...r2.Items);
-        
+
             nextPageToken = r1.NextPageToken;
             if (!nextPageToken) {
                 break;
             }
+            await new Promise((resolve) => setTimeout(resolve, 500));
         }
 
         return items;

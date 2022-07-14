@@ -10,6 +10,9 @@ export class AudioTrack extends EventEmitter {
     public get Title(): string {
         return 'Unkown track';
     }
+    public get Duration(): number {
+      return 0;
+    }
     protected getSourceStream: () => Readable;
     protected audioConverter: AudioConverter;
     protected info: AudioConvertionInfo;
