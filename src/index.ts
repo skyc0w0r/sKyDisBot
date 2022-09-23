@@ -1,4 +1,4 @@
-import Discord from 'discord.js';
+import Discord, { GatewayIntentBits } from 'discord.js';
 import DSTypes from 'discord-api-types/v9';
 import Logger from 'log4js';
 import proccess from 'process';
@@ -25,7 +25,7 @@ async function main() {
         .AddService(WebLoader, new WebLoader(config.get().WEB_USER_AGENT))
         .AddService(AudioConverter, new AudioConverter())
         .AddService(AudioManagerService, new AudioManagerService());
-    
+
     GlobalServiceManager().Init();
 
     cp.RegisterCommand('help', async (c) => {
@@ -34,7 +34,12 @@ async function main() {
 
     const logger = Logger.getLogger('main');
     const cl = new Discord.Client({
-        intents: ['GUILDS', 'GUILD_MESSAGES', 'GUILD_VOICE_STATES']
+        intents: [
+            GatewayIntentBits.Guilds,
+            GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.GuildVoiceStates,
+            GatewayIntentBits.MessageContent
+        ]
     });
 
     const dsrest = new REST({
@@ -104,9 +109,9 @@ async function main() {
     cl.on('messageCreate', async (msg) => {
         await cp.Dispatch(msg);
     });
-    
+
     await cl.login(config.get().DIS_TOKEN);
-    
+
     const bye: NodeJS.SignalsListener = async (signal) => {
         logger.info(`Got ${signal} signal, shutting down`);
         await GlobalServiceManager().Destroy();

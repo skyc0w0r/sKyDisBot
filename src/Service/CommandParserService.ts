@@ -1,4 +1,4 @@
-import Discord from 'discord.js';
+import Discord, { ActionRowBuilder, ApplicationCommandOptionType, ApplicationCommandType, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
 import Logger from 'log4js';
 import { UserActionEmitter } from '../Class/UserActionEmitter.js';
 import human from '../human.js';
@@ -65,7 +65,7 @@ class CommandParserService extends BaseService {
     public Destroy(): void {
         return;
     }
-    
+
 
     public async Dispatch(creator: Discord.Message | Discord.Interaction): Promise<void> {
         if (creator instanceof Discord.Message) {
@@ -76,11 +76,11 @@ class CommandParserService extends BaseService {
             this.logger.info('+', human._s(creator));
 
             await this.DispatchInner(creator.content.substring(this.prefix.length).split(/\s+/), creator);
-        } else if (creator instanceof Discord.Interaction) {
-            if (creator.isCommand()) {
+        } else if (creator instanceof Discord.BaseInteraction) {
+            if (creator.isChatInputCommand()) {
                 await creator.deferReply();
                 this.logger.info('+', human._s(creator));
-    
+
                 const tokens = [
                     creator.commandName,
                     creator.options.getSubcommandGroup(false),
@@ -104,7 +104,7 @@ class CommandParserService extends BaseService {
      * Adds new available command
      * @param name name of the command
      * @param callback it should proccess command
-     * @returns 
+     * @returns
      */
     public RegisterCommand(name: string | string[], callback: CommandCallback, options?: CommandCreationOptions): CommandParserService {
         if (Array.isArray(name)) {
@@ -114,7 +114,7 @@ class CommandParserService extends BaseService {
             return this;
         }
         this.logger.debug(human._s(this), '+>', name);
-        
+
         this.commands[name] = new RegisteredCommand({
             parser: this,
             name,
@@ -129,14 +129,14 @@ class CommandParserService extends BaseService {
      * Adds a new available category
      * @param name name of subcategory
      * @param wrapper decorator for the target command (put checks and try/catch there)
-     * @returns 
+     * @returns
      */
     public RegisterCategory(name: string, wrapper: CategoryWrapper | undefined = undefined, description: string | undefined = undefined): CommandParserService {
         this.logger.debug(human._s(this), '+>>', name);
         const category = new CommandParserService({wrapper, description});
         category.parent = this;
         category.name = name;
-        this.categories[name] = category; 
+        this.categories[name] = category;
         return category;
     }
 
@@ -200,7 +200,7 @@ class CommandParserService extends BaseService {
      */
     public GetDiscordCommandsData(): Discord.ApplicationCommandDataResolvable[] {
         const res: Discord.ApplicationCommandDataResolvable[] = [];
-        
+
         const getParserCommands = (based: Omit<Discord.ChatInputApplicationCommandData, 'name' | 'description'>, parser: CommandParserService): Discord.ChatInputApplicationCommandData[] => {
             const parserCommands: Discord.ChatInputApplicationCommandData[] = [];
             for (const cmd of Object.keys(parser.commands).map(c => parser.commands[c])) {
@@ -213,7 +213,7 @@ class CommandParserService extends BaseService {
                             name: c.id,
                             description: c.description,
                             required: c.required,
-                            type: 3,
+                            type: ApplicationCommandOptionType.String,
                             choices: c.choices?.map(e => {
                                 return {
                                     name: e,
@@ -234,7 +234,7 @@ class CommandParserService extends BaseService {
                             name: c.id,
                             description: c.description,
                             required: c.required,
-                            type: 3,
+                            type: ApplicationCommandOptionType.String,
                             choices: c.choices?.map(e => {
                                 return {
                                     name: e,
@@ -248,33 +248,33 @@ class CommandParserService extends BaseService {
             return parserCommands;
         };
 
-        getParserCommands({type: 1}, this).forEach(c => res.push(c));
+        getParserCommands({type: ApplicationCommandType.ChatInput}, this).forEach(c => res.push(c));
 
         for (const subCategory of Object.keys(this.categories).map(c => this.categories[c])) {
             const opts: Discord.ApplicationCommandOptionData[] = [];
-            opts.push(...(getParserCommands({type: 1}, subCategory) as unknown as Discord.ApplicationCommandSubCommandData[]));
+            opts.push(...(getParserCommands({type: ApplicationCommandType.ChatInput}, subCategory) as unknown as Discord.ApplicationCommandSubCommandData[]));
             for (const subSubCategory of Object.keys(subCategory.categories).map(c => subCategory.categories[c])) {
                 opts.push({
-                    type: 2,
+                    type: ApplicationCommandOptionType.SubcommandGroup,
                     name: subSubCategory.Name,
                     description: this.description,
                     options: getParserCommands({type: 1}, subSubCategory) as unknown as Discord.ApplicationCommandSubCommandData[]
                 });
             }
             res.push({
-                type: 1,
+                type: ApplicationCommandType.ChatInput,
                 name: subCategory.Name,
                 description: this.description,
                 options: opts,
             });
         }
-        
+
         this.logger.debug('Discord commands', JSON.stringify(res));
 
         return res;
     }
 
-    public GetHelpMessage(): Discord.MessagePayload | Discord.MessageOptions {
+    public GetHelpMessage(): Discord.MessagePayload | Discord.BaseMessageOptions {
         return {
             embeds: [
                 {
@@ -350,32 +350,34 @@ class CommandParserService extends BaseService {
         }
 
         options = options.map((c, i) => `${i+1}. ${c}`);
-        const optToButton = (i: number): Discord.MessageActionRowComponentResolvable => {
-            return {
-                type: 'BUTTON',
-                style: 'PRIMARY',
+        const optToButton = (i: number): Discord.ButtonBuilder => {
+            return new ButtonBuilder({
+                type: ComponentType.Button,
+                style: ButtonStyle.Primary,
                 label: (i+1).toString(),
                 customId: (i+1).toString(),
-            };
+            });
         };
-        const comps: Discord.MessageActionRow[] = [
-            new Discord.MessageActionRow()
-                .addComponents(options.filter((_, i) => i < 5).map((_, i) => optToButton(i)))
+        const comps: ActionRowBuilder<ButtonBuilder>[] = [
+            new ActionRowBuilder<ButtonBuilder>()
+                .addComponents(
+                    options.filter((_, i) => i < 5).map((_, i) => optToButton(i))
+                )
         ];
         if (options.length > 5) {
             comps.push(
-                new Discord.MessageActionRow()
+                new ActionRowBuilder<ButtonBuilder>()
                     .addComponents(options.filter((_, i) => i >= 5).map((_, i) => optToButton(i+5)))
             );
         }
-        comps.push(new Discord.MessageActionRow().addComponents([
-            {
-                type: 'BUTTON',
-                style: 'SECONDARY',
+        comps.push(new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(new ButtonBuilder({
+                type: ComponentType.Button,
+                style: ButtonStyle.Secondary,
                 label: 'Cancel',
                 customId: 'cancel',
-            }
-        ]));
+            })
+        ));
 
         const promtMsg = await cmd.reply({
             content: `Select by sending message or clicking button:\n\`\`\`${options.join('\n')}\`\`\``,
@@ -403,7 +405,7 @@ class CommandParserService extends BaseService {
             }, timeout);
             this.GrandParent.actionEmitter.on('action', handler);
         });
-        
+
         if (res === 'cancel') {
             await promtMsg.edit({content: 'Canceled 🚫', components: []});
         } else if (res === 'timeout') {
@@ -420,7 +422,7 @@ class CommandParserService extends BaseService {
      * Determines who should (if anyone) to process chat command
      * @param tokens command arguments
      * @param creator original message
-     * @returns 
+     * @returns
      */
     private async DispatchInner(tokens: string[], creator: Discord.Message | Discord.CommandInteraction): Promise<void> {
         this.logger.debug(human._s(this), '<', tokens);
@@ -464,7 +466,7 @@ class CommandParserService extends BaseService {
         }
     }
 
-    private validateCommand(creator: Discord.Message | Discord.CommandInteraction, command: RegisteredCommand, commandAlias?: CommandAlias): BaseCommand | undefined {        
+    private validateCommand(creator: Discord.Message | Discord.CommandInteraction, command: RegisteredCommand, commandAlias?: CommandAlias): BaseCommand | undefined {
         let res: BaseCommand;
         const cmdParams: CommandParamCollection = {};
 
@@ -548,7 +550,7 @@ class CommandParserService extends BaseService {
             }
 
             for (const opt of command.Arguments) {
-                const val = creator.options.getString(opt.id, false);
+                const val = creator.options.get(opt.id, false).value.toString();
                 if (val) {
                     cmdParams[opt.id] = {
                         id: opt.id,

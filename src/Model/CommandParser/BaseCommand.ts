@@ -56,12 +56,12 @@ export class BaseCommand {
         return await this.cmdParser.CreateSelectPromt(this, options, filter, timeout);
     }
 
-    public async reply(content: Discord.MessagePayload | Discord.MessageOptions): Promise<Discord.Message> {
+    public async reply(content: Discord.MessagePayload | Discord.BaseMessageOptions): Promise<Discord.Message> {
         if (this.isByMessage()) {
             return await this.Channel.send(content);
         } else if (this.isByInteraction()) {
             if (new Date().getTime() - this.Interaction.createdAt.getTime() < 15 * 60 * 1000) {
-                return await this.Interaction.followUp(content as any) as Discord.Message;
+                return await this.Interaction.followUp(content) as Discord.Message;
             } else {
                 return await this.Interaction.channel.send(content);
             }

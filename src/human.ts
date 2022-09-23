@@ -52,7 +52,7 @@ function _s<T = unknown>(o: T): string {
     if (o instanceof Discord.GuildMember) {
         return `[GuildMember|${o.id}|${o.nickname}]`;
     }
-    if (o instanceof Discord.Interaction) {
+    if (o instanceof Discord.BaseInteraction) {
         return `[Interaction|${o.type} by ${_s(o.member)} at ${_s(o.channel)}]`;
     }
     if (o instanceof Discord.User) {

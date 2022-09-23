@@ -1,4 +1,4 @@
-import Discord from 'discord.js';
+import Discord, { EmbedBuilder } from 'discord.js';
 import Logger from 'log4js';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import { BaseCommand } from '../Model/CommandParser/index.js';
@@ -361,14 +361,26 @@ class AudioManagerService extends BaseService {
             const end = ''.padStart(30 - perc - 1, '=');
             await cmd.reply({
                 embeds: [
-                    new Discord.MessageEmbed()
-                        .setAuthor('Now playing')
+                    new EmbedBuilder()
+                        .setAuthor({name: 'Now playing'})
                         .setTitle(`**${g.Current.Video.Snippet.Title}**`)
                         .setURL(`https://youtu.be/${g.Current.Video.Id}`)
                         .setThumbnail(g.Current.Video.Snippet.bestThumbnail.Url)
-                        .addField(`${human.timeSpan(g.PlayDuration)}/${human.timeSpan(g.Current.Video.ContentDetails.Duration)}`, `\`\`\`[${begin}O${end}]\`\`\``)
-                        .addField('Channel', g.Current.Video.Snippet.ChannelTitle, true)
-                        .addField('Requested by', g.Current.Origin.User.nickname, true)
+                        .addFields(
+                            {
+                                name: `${human.timeSpan(g.PlayDuration)}/${human.timeSpan(g.Current.Video.ContentDetails.Duration)}`,
+                                value: `\`\`\`[${begin}O${end}]\`\`\``,
+                            },
+                            {
+                                name: 'Channel',
+                                value: g.Current.Video.Snippet.ChannelTitle,
+                                inline: true,
+                            },
+                            {
+                                name: 'Requested by',
+                                value: g.Current.Origin.User.nickname,
+                                inline: true,
+                            })
                         .setColor('#FF3DCD')
                 ]
             });
@@ -379,12 +391,20 @@ class AudioManagerService extends BaseService {
             const end = ''.padStart(30 - perc - 1, '=');
             await cmd.reply({
                 embeds: [
-                    new Discord.MessageEmbed()
-                        .setAuthor('Now playing')
+                    new EmbedBuilder()
+                        .setAuthor({name: 'Now playing'})
                         .setTitle(`**${g.Current.Title}**`)
                         .setURL(g.Current.Url.toString())
-                        .addField(`${human.timeSpan(g.PlayDuration)}/${human.timeSpan(g.Current.Duration)}`, `\`\`\`[${begin}O${end}]\`\`\``)
-                        .addField('Requested by', g.Current.Origin.User.nickname, true)
+                        .addFields(
+                            {
+                                name: `${human.timeSpan(g.PlayDuration)}/${human.timeSpan(g.Current.Duration)}`,
+                                value:`\`\`\`[${begin}O${end}]\`\`\``,
+                            },
+                            {
+                                name: 'Requested by',
+                                value: g.Current.Origin.User.nickname,
+                                inline: true,
+                            })
                         .setColor('#FF3DCD')
                 ]
             });
@@ -408,7 +428,7 @@ class AudioManagerService extends BaseService {
             'all': '🔁',
         };
 
-        const e = new Discord.MessageEmbed()
+        const e = new EmbedBuilder()
             .setTitle(`Queue for ${cmd.Guild.name}`)
             .setDescription(`Loop: ${loopToEmoji[g.LoopMode]}`)
             .setColor('#FF3DCD')
@@ -435,8 +455,15 @@ class AudioManagerService extends BaseService {
                 queueText += `${index++}. I dont know what is it\n`;
             }
         }
-        e.addField('Now playing', nowText);
-        e.addField('Up next', queueText);
+        e.addFields(
+            {
+                name: 'Now playing',
+                value: nowText,
+            },
+            {
+                name: 'Up next',
+                value: queueText
+            });
         await cmd.reply({
             embeds: [e]
         });
@@ -450,17 +477,17 @@ class AudioManagerService extends BaseService {
         return new WebTrack(cmd, url, this.webLoader, this.audioConverter);
     };
 
-    displayYTtrack = (vid: Video): Discord.MessagePayload | Discord.MessageOptions => {
+    displayYTtrack = (vid: Video): Discord.MessagePayload | Discord.BaseMessageOptions => {
         return { content: `Added **${vid.Snippet.Title}** to the queue!` };
     };
 
-    displayDirectTrack = (track: WebTrack): Discord.MessagePayload | Discord.MessageOptions => {
+    displayDirectTrack = (track: WebTrack): Discord.MessagePayload | Discord.BaseMessageOptions => {
         return { content: `Added **${track.Title}** to the queue` };
         return { embeds: [
-            new Discord.MessageEmbed()
+            new EmbedBuilder()
                 .setTitle(track.Title)
                 .setURL(track.Url.toString())
-                .setAuthor('Added to the queue')
+                .setAuthor({name: 'Added to the queue'})
                 .setColor('#FF3DCD')
         ]};
     };

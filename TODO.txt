@@ -10,3 +10,10 @@
 [ ] Refactor base command
 
 ytdl -> PassThrough -> ffmpeg -> PassThrough -> Player
+
+[bugs]
+[] 1. summon on play if bot is in another channel
+[] 2. crash on invalid url in /audio/direct
+[] 3. artist does not show in audio info from metadata when using /audio/direct
+[] 4. loop mode does not changes on prefix command invoke
+[] 5. letter case should not matter for commands (!P does not work)
