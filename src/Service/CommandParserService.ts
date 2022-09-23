@@ -430,7 +430,7 @@ class CommandParserService extends BaseService {
             return;
         }
 
-        const cmd = tokens.shift();
+        const cmd = tokens.shift().toLowerCase();
 
         const aliasCmd = this.aliases[cmd];
         const catCmd = this.categories[cmd];
@@ -502,7 +502,7 @@ class CommandParserService extends BaseService {
             };
 
             for (const opt of command.Arguments) {
-                let val = undefined;
+                let val: string | undefined = undefined;
                 try {
                     [val, text] = nextToken(text);
                 } catch (e) {
@@ -519,6 +519,7 @@ class CommandParserService extends BaseService {
                     // if last argument
                     if (command.Arguments.findIndex(c => c.id === opt.id) === command.Arguments.length - 1) {
                         val += ' ' + text;
+                        val = val.trim();
                     }
                     cmdParams[opt.id] = {
                         id: opt.id,

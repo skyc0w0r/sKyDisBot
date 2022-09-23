@@ -39,7 +39,7 @@ class AudioConverter extends BaseService {
             this.abortConvertion(info);
         }
     }
-    
+
 
     public convertForDis(sourceStream: Readable): AudioConvertionInfo {
         if (!this.ffmpegCmd) {
@@ -58,7 +58,7 @@ class AudioConverter extends BaseService {
             '-ar', '48000',
             'pipe:1',
         ]);
-        
+
         let finished = false;
         sourceStream.on('error', (err) => {
             this.logger.debug(this.identify(sourceStream), 'Could not convert stream', err);
@@ -75,10 +75,10 @@ class AudioConverter extends BaseService {
                 this.abortConvertion(res);
             }
         });
-    
+
         child.stdin.on('error', (e) => this.logger.warn(this.identify(sourceStream), 'in', e));
         child.stdout.on('error', (e) => this.logger.warn(this.identify(sourceStream), 'out', e));
-    
+
         const pt = new PassThrough({
             highWaterMark: 10 * 1024 * 1024,
         });
@@ -103,7 +103,7 @@ class AudioConverter extends BaseService {
             if (!info.proc.killed) {
                 info.proc.kill('SIGKILL');
             }
-    
+
             this.inProgress = this.inProgress.filter(c => c !== info);
         }
     }
@@ -119,10 +119,10 @@ class AudioConverter extends BaseService {
             '-hide_banner',
             '-f', 'null', '-'
         ]);
-    
+
         child.stdin.on('error', (e) => this.logger.warn(this.identify(sourceStream), 'in', e));
         child.stdout.on('error', (e) => this.logger.warn(this.identify(sourceStream), 'out', e));
-    
+
         const task = new Promise<AudioMetaInfo>((resolve) => {
             let text = '';
             child.stderr.on('data', data => {
@@ -131,7 +131,7 @@ class AudioConverter extends BaseService {
             child.on('close', () => {
                 const artistGroups = artistRe.exec(text);
                 const artist = artistGroups?.groups?.target?.trim() ?? '';
-                
+
                 const titleGroups = titleRe.exec(text);
                 const title = titleGroups?.groups?.target?.trim() ?? '';
 
@@ -144,13 +144,18 @@ class AudioConverter extends BaseService {
                 let duration = 0;
                 let multiplier = 3600;
                 for (const s of dura.split(':')) {
-                    duration += parseInt(s) * multiplier;
+                    try {
+                        duration += parseInt(s) * multiplier;
+                    }
+                    catch {
+                        // whatever
+                    }
                     multiplier /= 60;
                 }
 
                 const res = new AudioMetaInfo(artist, title, duration);
                 this.logger.debug(this.identify(sourceStream), 'Meta:', res);
-                
+
                 resolve(res);
             });
         });
