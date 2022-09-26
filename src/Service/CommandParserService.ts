@@ -551,7 +551,7 @@ class CommandParserService extends BaseService {
             }
 
             for (const opt of command.Arguments) {
-                const val = creator.options.get(opt.id, false).value.toString();
+                const val = creator.options.get(opt.id, false)?.value.toString();
                 if (val) {
                     cmdParams[opt.id] = {
                         id: opt.id,
