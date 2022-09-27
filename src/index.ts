@@ -1,4 +1,4 @@
-import Discord, { GatewayIntentBits } from 'discord.js';
+import Discord, { GatewayIntentBits, ChannelType, TextChannel } from 'discord.js';
 import DSTypes from 'discord-api-types/v9';
 import Logger from 'log4js';
 import proccess from 'process';
@@ -8,6 +8,7 @@ import AudioConverter from './Service/AudioConverter.js';
 import AudioManagerService from './Service/AudioManagerService.js';
 import { GlobalServiceManager } from './Service/ServiceManager.js';
 import CommandParserService from './Service/CommandParserService.js';
+import DataBaseService, { UsersGif } from './Service/DataBaseService.js';
 import WebLoader from './Service/WebLoader.js';
 import { writeFileSync } from 'fs';
 import human from './human.js';
@@ -19,12 +20,16 @@ async function main() {
     const cp = new CommandParserService({
         prefix: config.get().COMMAND_PREFIX,
     });
+
+    // init Data Base SQLite
+
     GlobalServiceManager()
         .AddService(CommandParserService, cp)
         .AddService(YouTubeService, new YouTubeService(config.get().YT_DATA_TOKEN))
         .AddService(WebLoader, new WebLoader(config.get().WEB_USER_AGENT))
         .AddService(AudioConverter, new AudioConverter())
-        .AddService(AudioManagerService, new AudioManagerService());
+        .AddService(AudioManagerService, new AudioManagerService())
+        .AddService(DataBaseService, new DataBaseService());
 
     GlobalServiceManager().Init();
 
@@ -32,14 +37,16 @@ async function main() {
         await c.reply(cp.GetHelpMessage());
     }, {description: 'Display help message'});
 
+
     const logger = Logger.getLogger('main');
     const cl = new Discord.Client({
         intents: [
             GatewayIntentBits.Guilds,
             GatewayIntentBits.GuildMessages,
             GatewayIntentBits.GuildVoiceStates,
-            GatewayIntentBits.MessageContent
-        ]
+            GatewayIntentBits.MessageContent,
+            GatewayIntentBits.GuildVoiceStates,
+        ],
     });
 
     const dsrest = new REST({
@@ -71,9 +78,10 @@ async function main() {
         }
     }
 
+
+
     cl.on('ready', async () => {
         logger.info('Discord client ready');
-
         if (process.env.COMMANDS_LOCAL?.toLocaleLowerCase() === 'set') {
             logger.info('Updating guild commands');
             await cl.guilds.fetch();
@@ -108,6 +116,25 @@ async function main() {
 
     cl.on('messageCreate', async (msg) => {
         await cp.Dispatch(msg);
+    });
+
+
+    // check user on connect to voice channel and send gif to text channel
+    cl.on('voiceStateUpdate', async (oldState, newState) => {
+      try {
+        if (newState.channel !== null) {
+          const userFromDb = await UsersGif.findOne({ where: { discordId: `<@${newState.member.user.id}>`}});
+          const firstChannelOnServer = newState.channel.guild.channels.cache.filter(c => c.type === ChannelType.GuildText).first().id;
+          const textChannel = cl.channels.cache.get(firstChannelOnServer) as TextChannel;
+          if (newState.channel && `<@${newState.member.user.id.toString()}>` ===  userFromDb.discordId) {
+            textChannel.send({files: [`${userFromDb?.gif}`]});
+          } else {
+            await textChannel.send({content: 'User not found in database'});
+          }
+        }
+      } catch (error) {
+        logger.error(error);
+      }
     });
 
     await cl.login(config.get().DIS_TOKEN);
