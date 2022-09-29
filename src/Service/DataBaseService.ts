@@ -1,7 +1,7 @@
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import { GlobalServiceManager } from './ServiceManager.js';
 import CommandParserService from './CommandParserService.js';
-import { Sequelize, Model, DataTypes  } from 'sequelize';
+import { Sequelize, DataTypes  } from 'sequelize';
 import Logger from 'log4js';
 import { BaseCommand } from '../Model/CommandParser/index.js';
 import { UsersGif } from '../Interface/DatabaseServiceIntreface';
@@ -63,10 +63,11 @@ class DataBaseService extends BaseService {
     // Add new Record to DB
     private async gifAdd(cmd: BaseCommand): Promise<void> {
       if(cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
-        if (!(await this.checkUserInDB(cmd.Params['discordId'].value))) {
+        if (!(await this.checkUserInDB(cmd.Params['discordId'].value, cmd.Guild.id))) {
           await UsersGif.create({
             discordId: cmd.Params['discordId'].value,
-            gif: cmd.Params['gif'].value
+            gif: cmd.Params['gif'].value,
+            guildId: cmd.Guild.id
           });
           await cmd.reply({content: 'User added successfully '});
         } else {
@@ -80,12 +81,14 @@ class DataBaseService extends BaseService {
     // change gif for user
     private async gifChange(cmd: BaseCommand): Promise<void> {
       if(cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
-        if (await this.checkUserInDB(cmd.Params['discordId'].value)) {
+        if (await this.checkUserInDB(cmd.Params['discordId'].value, cmd.Guild.id)) {
           await UsersGif.update({ gif: cmd.Params['gif'].value}, {where: {
-            discordId: cmd.Params['discordId'].value
+            discordId: cmd.Params['discordId'].value,
+            guildId: cmd.Guild.id
           }
           });
           await cmd.reply({content: 'User updated successfully '});
+
         } else {
           await cmd.reply({content: 'The user is not in the database. Please add a user via the command "gif {user} {link gif}"'});
         }
@@ -97,7 +100,7 @@ class DataBaseService extends BaseService {
       // Remove gif for user
       private async gifRemove(cmd: BaseCommand): Promise<void> {
         if(cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
-          if (await this.checkUserInDB(cmd.Params['discordId'].value)) {
+          if (await this.checkUserInDB(cmd.Params['discordId'].value, cmd.Guild.id)) {
             await UsersGif.destroy({where: {
               discordId: cmd.Params['discordId'].value
             }
@@ -111,10 +114,11 @@ class DataBaseService extends BaseService {
         }
       }
 
-    public async checkUserInDB(idUser: string): Promise<boolean> {
+    public async checkUserInDB(idUser: string, idGuild: string): Promise<boolean> {
       return await UsersGif.findOne({
         where: {
-          discordId: idUser
+          discordId: idUser,
+          guildId: idGuild
         }
       }) ? true : false;
     }
@@ -144,10 +148,13 @@ const sequelize = new Sequelize('database', 'user', 'password', {
 
 const UsersGif = sequelize.define<UsersGif>('users_gif', {
   discordId: {
-    type: DataTypes.NUMBER,
-    unique: true,
+    type: DataTypes.STRING,
   },
   gif: DataTypes.TEXT,
+  guildId: {
+    type: DataTypes.TEXT,
+    unique: true,
+  }
 });
 
 export { UsersGif };
