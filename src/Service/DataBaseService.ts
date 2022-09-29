@@ -147,14 +147,9 @@ const sequelize = new Sequelize('database', 'user', 'password', {
 
 
 const UsersGif = sequelize.define<UsersGif>('users_gif', {
-  discordId: {
-    type: DataTypes.STRING,
-  },
+  discordId: DataTypes.STRING,
   gif: DataTypes.TEXT,
-  guildId: {
-    type: DataTypes.TEXT,
-    unique: true,
-  }
+  guildId: DataTypes.TEXT,
 });
 
 export { UsersGif };
