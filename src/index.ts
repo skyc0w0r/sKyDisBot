@@ -1,7 +1,7 @@
 import Discord, { GatewayIntentBits, ChannelType, TextChannel } from 'discord.js';
 import DSTypes from 'discord-api-types/v9';
 import Logger from 'log4js';
-import proccess from 'process';
+import proccess, { title } from 'process';
 import config from './config.js';
 import YouTubeService from './Service/YouTubeService.js';
 import AudioConverter from './Service/AudioConverter.js';
@@ -20,7 +20,7 @@ async function main() {
     const cp = new CommandParserService({
         prefix: config.get().COMMAND_PREFIX,
     });
-
+    const db = new DataBaseService();
     // init Data Base SQLite
 
     GlobalServiceManager()
@@ -29,7 +29,7 @@ async function main() {
         .AddService(WebLoader, new WebLoader(config.get().WEB_USER_AGENT))
         .AddService(AudioConverter, new AudioConverter())
         .AddService(AudioManagerService, new AudioManagerService())
-        .AddService(DataBaseService, new DataBaseService());
+        .AddService(DataBaseService, db);
 
     GlobalServiceManager().Init();
 
@@ -121,20 +121,26 @@ async function main() {
 
     // check user on connect to voice channel and send gif to text channel
     cl.on('voiceStateUpdate', async (oldState, newState) => {
-      try {
-        if (newState.channel !== null) {
+      if (await db.checkUserInDB(`<@${newState.member.user.id}>`)) {
+        try {
           const userFromDb = await UsersGif.findOne({ where: { discordId: `<@${newState.member.user.id}>`}});
           const firstChannelOnServer = newState.channel.guild.channels.cache.filter(c => c.type === ChannelType.GuildText).first().id;
           const textChannel = cl.channels.cache.get(firstChannelOnServer) as TextChannel;
-          if (newState.channel && `<@${newState.member.user.id.toString()}>` ===  userFromDb.discordId) {
-            textChannel.send({files: [`${userFromDb?.gif}`]});
-          } else {
-            await textChannel.send({content: 'User not found in database'});
+          if (newState.channel !== null && `<@${newState.member.user.id}>` ===  userFromDb.discordId) {
+            textChannel.send({
+              embeds: [{
+                title: `Кто это тут зашел? Ну привет, ${newState.member.user.username}`,
+                image: {
+                  url: `${userFromDb?.gif}`,
+                },
+                color: Math.floor(Math.random()*16777215),
+              }]});
           }
-        }
       } catch (error) {
         logger.error(error);
       }
+      }
+
     });
 
     await cl.login(config.get().DIS_TOKEN);
