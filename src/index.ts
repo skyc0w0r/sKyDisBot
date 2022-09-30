@@ -12,6 +12,7 @@ import WebLoader from './Service/WebLoader.js';
 import { writeFileSync } from 'fs';
 import human from './human.js';
 import { REST } from '@discordjs/rest';
+import UtilService from './Service/UtilService.js';
 
 async function main() {
     config.check();
@@ -24,7 +25,8 @@ async function main() {
         .AddService(YouTubeService, new YouTubeService(config.get().YT_DATA_TOKEN))
         .AddService(WebLoader, new WebLoader(config.get().WEB_USER_AGENT))
         .AddService(AudioConverter, new AudioConverter())
-        .AddService(AudioManagerService, new AudioManagerService());
+        .AddService(AudioManagerService, new AudioManagerService())
+        .AddService(UtilService, new UtilService());
 
     GlobalServiceManager().Init();
 

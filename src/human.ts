@@ -62,7 +62,7 @@ function _s<T = unknown>(o: T): string {
         return `[TextCh|${o.id}|${o.name}]`;
     }
     if (o instanceof Discord.Message) {
-        return `[Msg|${_s(o.member)} at ${_s(o.channel)} wrote ${o.id}|${o.content}]`;
+        return `[Msg|${o.member && _s(o.member) || _s(o.author)} at ${_s(o.channel)} wrote ${o.id}|${o.content}]`;
     }
     if (o instanceof Discord.VoiceChannel) {
         return `[VoiceCh|${o.id}|${o.name}]`;
