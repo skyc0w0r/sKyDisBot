@@ -191,6 +191,10 @@ const UsersGif = sequelize.define<UsersGif>('users_gif', {
   discordId: DataTypes.STRING,
   gif: DataTypes.TEXT,
   guildId: DataTypes.TEXT,
+  lastSent: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 });
 
 export { UsersGif };
