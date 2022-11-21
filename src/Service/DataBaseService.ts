@@ -1,11 +1,12 @@
-import { BaseService } from '../Interface/ServiceManagerInterface.js';
-import { GlobalServiceManager } from './ServiceManager.js';
-import CommandParserService from './CommandParserService.js';
-import { Sequelize, DataTypes  } from 'sequelize';
+import { PermissionsBitField } from 'discord.js';
 import Logger from 'log4js';
-import { BaseCommand } from '../Model/CommandParser/index.js';
+import { DataTypes, Sequelize } from 'sequelize';
 import { UsersGif } from '../Interface/DatabaseServiceIntreface';
-import {PermissionsBitField} from 'discord.js';
+import { BaseService } from '../Interface/ServiceManagerInterface.js';
+import { BaseCommand } from '../Model/CommandParser/index.js';
+import CommandParserService from './CommandParserService.js';
+import { GlobalServiceManager } from './ServiceManager.js';
+
 class DataBaseService extends BaseService {
 
     public async Init(): Promise<void> {
@@ -62,66 +63,106 @@ class DataBaseService extends BaseService {
     }
     // Add new Record to DB
     private async gifAdd(cmd: BaseCommand): Promise<void> {
-      if(cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
-        if (!(await this.checkUserInDB(cmd.Params['discordId'].value, cmd.Guild.id))) {
-          await UsersGif.create({
-            discordId: cmd.Params['discordId'].value,
-            gif: cmd.Params['gif'].value,
-            guildId: cmd.Guild.id
-          });
-          await cmd.reply({content: 'User added successfully '});
-        } else {
-          await cmd.reply({content: 'User exist in DB '});
-        }
-      } else {
+      if(!cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
         await cmd.reply({content: 'Command only for moderators'});
+        return;
       }
+
+      const discordId =
+        /^<@\d+>$/.test(cmd.Params['discordId'].value) &&
+        cmd.Params['discordId'].value;
+
+      if (!discordId) {
+        await cmd.reply({content: 'Invalid discord id'});
+        return;
+      }
+
+      const user = await UsersGif.findOne({
+        where: {
+          discordId: discordId,
+          guildId: cmd.Guild.id
+        }
+      });
+
+      if (user){
+        await cmd.reply({content: 'User exist in DB '});
+        return;
+      }
+
+      await UsersGif.create({
+        discordId: discordId,
+        gif: cmd.Params['gif'].value,
+        guildId: cmd.Guild.id
+      });
+      await cmd.reply({content: 'User added successfully '});
     }
 
     // change gif for user
     private async gifChange(cmd: BaseCommand): Promise<void> {
-      if(cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
-        if (await this.checkUserInDB(cmd.Params['discordId'].value, cmd.Guild.id)) {
-          await UsersGif.update({ gif: cmd.Params['gif'].value}, {where: {
-            discordId: cmd.Params['discordId'].value,
-            guildId: cmd.Guild.id
-          }
-          });
-          await cmd.reply({content: 'User updated successfully '});
-
-        } else {
-          await cmd.reply({content: 'The user is not in the database. Please add a user via the command "gif {user} {link gif}"'});
-        }
-      } else {
+      if(!cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
         await cmd.reply({content: 'Command only for moderators'});
+        return;
       }
+
+      const discordId =
+      /^<@\d+>$/.test(cmd.Params['discordId'].value) &&
+      cmd.Params['discordId'].value;
+
+      if (!discordId) {
+        await cmd.reply({content: 'Invalid discord id'});
+        return;
+      }
+
+      const user = await UsersGif.findOne({
+        where: {
+          discordId: discordId,
+          guildId: cmd.Guild.id
+        }
+      });
+
+      if (!user) {
+        await cmd.reply({
+          content: `The user is not in the database.
+                    Please add a user via the command "gif {user} {link gif}"`
+        });
+        return;
+      }
+
+      await user.update({'gif': cmd.Params['gif'].value});
+      await cmd.reply({content: 'User updated successfully '});
     }
 
       // Remove gif for user
       private async gifRemove(cmd: BaseCommand): Promise<void> {
-        if(cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
-          if (await this.checkUserInDB(cmd.Params['discordId'].value, cmd.Guild.id)) {
-            await UsersGif.destroy({where: {
-              discordId: cmd.Params['discordId'].value
-            }
-            });
-            await cmd.reply({content: 'User deleted successfully '});
-          } else {
-            await cmd.reply({content: 'The user is not in the database.'});
-          }
-        } else {
+        if(!cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
           await cmd.reply({content: 'Command only for moderators'});
+          return;
         }
-      }
 
-    public async checkUserInDB(idUser: string, idGuild: string): Promise<boolean> {
-      return await UsersGif.findOne({
-        where: {
-          discordId: idUser,
-          guildId: idGuild
+        const discordId =
+        /^<@\d+>$/.test(cmd.Params['discordId'].value) &&
+        cmd.Params['discordId'].value;
+
+        if (!discordId) {
+          await cmd.reply({content: 'Invalid discord id'});
+          return;
         }
-      }) ? true : false;
-    }
+
+        const user = await UsersGif.findOne({
+          where: {
+            discordId: discordId,
+            guildId: cmd.Guild.id
+          }
+        });
+
+        if (!user){
+          await cmd.reply({content: 'The user is not in the database.'});
+          return;
+        }
+
+        await user.destroy();
+        await cmd.reply({content: 'User deleted successfully '});
+      }
 
     // Close connection
     public async Destroy(): Promise<void> {
