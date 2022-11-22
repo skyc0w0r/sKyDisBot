@@ -60,6 +60,9 @@ class DataBaseService extends BaseService {
         },
       ],
     });
+    cp.RegisterCommand('gif_list', (c) => this.gifList(c), {
+      description: 'List all gifs',
+    });
     }
     // Add new Record to DB
     private async gifAdd(cmd: BaseCommand): Promise<void> {
@@ -132,49 +135,87 @@ class DataBaseService extends BaseService {
       await cmd.reply({content: 'User updated successfully '});
     }
 
-      // Remove gif for user
-      private async gifRemove(cmd: BaseCommand): Promise<void> {
-        if(!cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
-          await cmd.reply({content: 'Command only for moderators'});
-          return;
-        }
-
-        const discordId =
-        /^<@\d+>$/.test(cmd.Params['discordId'].value) &&
-        cmd.Params['discordId'].value;
-
-        if (!discordId) {
-          await cmd.reply({content: 'Invalid discord id'});
-          return;
-        }
-
-        const user = await UsersGif.findOne({
-          where: {
-            discordId: discordId,
-            guildId: cmd.Guild.id
-          }
-        });
-
-        if (!user){
-          await cmd.reply({content: 'The user is not in the database.'});
-          return;
-        }
-
-        await user.destroy();
-        await cmd.reply({content: 'User deleted successfully '});
+    // Remove gif for user
+    private async gifRemove(cmd: BaseCommand): Promise<void> {
+      if(!cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
+        await cmd.reply({content: 'Command only for moderators'});
+        return;
       }
+
+      const discordId =
+      /^<@\d+>$/.test(cmd.Params['discordId'].value) &&
+      cmd.Params['discordId'].value;
+
+      if (!discordId) {
+        await cmd.reply({content: 'Invalid discord id'});
+        return;
+      }
+
+      const user = await UsersGif.findOne({
+        where: {
+          discordId: discordId,
+          guildId: cmd.Guild.id
+        }
+      });
+
+      if (!user){
+        await cmd.reply({content: 'The user is not in the database.'});
+        return;
+      }
+
+      await user.destroy();
+      await cmd.reply({content: 'User deleted successfully '});
+    }
+
+    private async gifList(cmd: BaseCommand): Promise<void> {
+      if(!cmd.User.permissions.has(PermissionsBitField.Flags.ManageGuild)){
+        await cmd.reply({content: 'Command only for moderators'});
+        return;
+      }
+
+      const userList = await UsersGif.findAll({
+        where: {
+          guildId: cmd.Guild.id
+        }
+      });
+
+      await cmd.reply({
+          embeds: [
+          {
+            title: `List gifs for ${cmd.Guild.name}`,
+            color: Math.floor(Math.random() * 16777215),
+            fields: userList.reduce((acc, u) => {
+              return [...acc, {
+                name: 'User',
+                value: u.discordId,
+                inline: true,
+              },
+              {
+                name: 'Gif',
+                value: u.gif,
+                inline: true,
+              },
+              {
+                name: 'Last sent',
+                value: u?.lastSent ? u.lastSent.toISOString() : '-',
+                inline: true,
+              },
+              {
+                name: '\u200b',
+                value: '\u200b',
+                inline: false,
+              },];
+            }, [])
+          },
+        ],
+      });
+    }
 
     // Close connection
     public async Destroy(): Promise<void> {
       await sequelize.close();
     }
 
-    // Show all record
-    // public async showAllRecords(): Promise<void> {
-    //   const users = await UsersGif.findAll();
-    //   users.every(user => user instanceof UsersGif);
-    //   logger.info('All users:', JSON.stringify(users, null, 2));
-    // }
 }
 
 const logger = Logger.getLogger('main');
