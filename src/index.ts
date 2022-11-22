@@ -136,7 +136,7 @@ async function main() {
         if (!user) return;
 
         if (
-          !user?.lastSent ||
+          !!user?.lastSent &&
           new Date().valueOf() - user.lastSent.valueOf() < GREETING_TIMEOUT
         ) return;
 
