@@ -36,6 +36,14 @@ async function main() {
     cp.RegisterCommand('help', async (c) => {
         await c.reply(cp.GetHelpMessage());
     }, {description: 'Display help message'});
+    cp.RegisterCommand('unmute', async (c) => {
+      if (!c.Guild.members.me.voice.channel) {
+        await c.reply({content: 'Summon me first!'});
+        return;
+      }
+      await c.Guild.members.me.voice.setMute(false);
+      await c.reply({content: 'Unmuted!'});
+    });
 
 
     const logger = Logger.getLogger('main');
@@ -77,8 +85,6 @@ async function main() {
             return;
         }
     }
-
-
 
     cl.on(Events.ClientReady, async () => {
         logger.info('Discord client ready');

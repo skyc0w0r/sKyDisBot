@@ -15,6 +15,7 @@ import { YouTubeTrack, WebTrack, AudioTrack } from '../Model/AudioManager/index.
 import WebLoader from './WebLoader.js';
 import { LastTrackCollection } from '../Model/AudioManager/LastTrackCollection.js';
 import { LoopMode } from '../Interface/LoopMode.js';
+import { ActualTextChannel } from '../Interface/Util.js';
 
 class AudioManagerService extends BaseService {
     private audioConverter: AudioConverter;
@@ -142,7 +143,7 @@ class AudioManagerService extends BaseService {
             await callback(cmd);
         }
         catch (e) {
-            await cmd.Channel.send('Something went wrong, try again later');
+            await (cmd.Channel as ActualTextChannel).send('Something went wrong, try again later');
             this.logger.warn(human._s(cmd), 'Got error, while processing message', e);
         }
     }

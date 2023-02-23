@@ -7,6 +7,7 @@ import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import { UserPromtResult } from '../Interface/UserPromtResult.js';
 import { CommandCreationOptions, CommandParamCollection } from '../Model/CommandParser/CommandOption.js';
 import { BaseCommand, InteractionCommand, MessageCommand, RegisteredCommand } from '../Model/CommandParser/index.js';
+import { ActualTextChannel } from '../Interface/Util.js';
 
 /**
  * Use to parse text chat command
@@ -506,13 +507,13 @@ class CommandParserService extends BaseService {
                 try {
                     [val, text] = nextToken(text);
                 } catch (e) {
-                    creator.channel.send({content: `Invalid command: ${(e as Error).message}`});
+                    (creator.channel as ActualTextChannel).send({content: `Invalid command: ${(e as Error).message}`});
                     return undefined;
                 }
                 if (val) {
                     if (opt.choices) {
                         if (!opt.choices.some(c => c === val)) {
-                            creator.channel.send({content: `Invalid argument value, valid are:[${opt.choices.join(', ')}]`});
+                            (creator.channel as ActualTextChannel).send({content: `Invalid argument value, valid are:[${opt.choices.join(', ')}]`});
                             return undefined;
                         }
                     }
@@ -532,7 +533,7 @@ class CommandParserService extends BaseService {
                             value: opt.default
                         };
                     } else {
-                        creator.channel.send({content: `Missing argument ${opt.id}`});
+                        (creator.channel as ActualTextChannel).send({content: `Missing argument ${opt.id}`});
                         return undefined;
                     }
                 }
