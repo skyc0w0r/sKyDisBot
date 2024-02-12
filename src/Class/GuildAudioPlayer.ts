@@ -10,7 +10,7 @@ interface GuildAudioPlayerEvents {
     trackError: (track: AudioTrack) => void
 }
 
-export declare interface GuildAudioPlayer {
+export interface IGuildAudioPlayer {
     on<U extends keyof GuildAudioPlayerEvents>(
         event: U,
         listener: GuildAudioPlayerEvents[U]
@@ -24,7 +24,7 @@ export declare interface GuildAudioPlayer {
     ): this
 }
 
-export class GuildAudioPlayer extends EventEmitter {
+export class GuildAudioPlayer extends EventEmitter implements IGuildAudioPlayer {
     public get Guild(): Discord.Guild {
         return this.guild;
     }

@@ -6,7 +6,7 @@ interface UserActionEmitterEvents {
     action: (user: Discord.GuildMember, channel: Discord.TextChannel, result: UserPromtResult, creator?: Discord.Message | Discord.ButtonInteraction) => void
 }
 
-export declare interface UserActionEmitter {
+export interface IUserActionEmitter {
     on<U extends keyof UserActionEmitterEvents>(
         event: U,
         listener: UserActionEmitterEvents[U]
@@ -21,7 +21,7 @@ export declare interface UserActionEmitter {
 }
 
 // add listen for?
-export class UserActionEmitter extends EventEmitter {
+export class UserActionEmitter extends EventEmitter implements IUserActionEmitter {
     emitOnMessage(msg: Discord.Message): void {
         if (msg.content.toLowerCase() === 'cancel') {
             this.emit('action', msg.member, msg.channel as Discord.TextChannel, 'cancel', msg);
