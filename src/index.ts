@@ -1,19 +1,20 @@
-import Discord, { GatewayIntentBits } from 'discord.js';
+import { REST } from '@discordjs/rest';
 import DSTypes from 'discord-api-types/v9';
+import Discord, { ChannelType, Events, GatewayIntentBits, TextChannel } from 'discord.js';
+import { writeFileSync } from 'fs';
 import Logger from 'log4js';
 import proccess from 'process';
 import config from './config.js';
-import YouTubeService from './Service/YouTubeService.js';
+import human from './human.js';
 import AudioConverter from './Service/AudioConverter.js';
 import AudioManagerService from './Service/AudioManagerService.js';
-import { GlobalServiceManager } from './Service/ServiceManager.js';
 import CommandParserService from './Service/CommandParserService.js';
+import DataBaseService, { UsersGif } from './Service/DataBaseService.js';
+import { GlobalServiceManager } from './Service/ServiceManager.js';
 import WebLoader from './Service/WebLoader.js';
-import { writeFileSync } from 'fs';
-import human from './human.js';
-import { REST } from '@discordjs/rest';
 import UtilService from './Service/UtilService.js';
 import YandexService from './Service/YandexService.js';
+import YouTubeService from './Service/YouTubeService.js';
 
 async function main() {
     config.check();
@@ -21,6 +22,9 @@ async function main() {
     const cp = new CommandParserService({
         prefix: config.get().COMMAND_PREFIX,
     });
+    const db = new DataBaseService();
+    // init Data Base SQLite
+
     GlobalServiceManager()
         .AddService(CommandParserService, cp)
         .AddService(YouTubeService, new YouTubeService(config.get().YT_DATA_TOKEN))
@@ -28,13 +32,23 @@ async function main() {
         .AddService(AudioConverter, new AudioConverter())
         .AddService(AudioManagerService, new AudioManagerService())
         .AddService(UtilService, new UtilService())
-        .AddService(YandexService, new YandexService(config.get().YANDEX_MUSIC_TOKEN));
+        .AddService(YandexService, new YandexService(config.get().YANDEX_MUSIC_TOKEN))
+        .AddService(DataBaseService, db);
 
     GlobalServiceManager().Init();
 
     cp.RegisterCommand('help', async (c) => {
         await c.reply(cp.GetHelpMessage());
     }, {description: 'Display help message'});
+    cp.RegisterCommand('unmute', async (c) => {
+      if (!c.Guild.members.me.voice.channel) {
+        await c.reply({content: 'Summon me first!'});
+        return;
+      }
+      await c.Guild.members.me.voice.setMute(false);
+      await c.reply({content: 'Unmuted!'});
+    });
+
 
     const logger = Logger.getLogger('main');
     const cl = new Discord.Client({
@@ -42,8 +56,9 @@ async function main() {
             GatewayIntentBits.Guilds,
             GatewayIntentBits.GuildMessages,
             GatewayIntentBits.GuildVoiceStates,
-            GatewayIntentBits.MessageContent
-        ]
+            GatewayIntentBits.MessageContent,
+            GatewayIntentBits.GuildVoiceStates,
+        ],
     });
 
     const dsrest = new REST({
@@ -75,9 +90,8 @@ async function main() {
         }
     }
 
-    cl.on('ready', async () => {
+    cl.on(Events.ClientReady, async () => {
         logger.info('Discord client ready');
-
         if (process.env.COMMANDS_LOCAL?.toLocaleLowerCase() === 'set') {
             logger.info('Updating guild commands');
             await cl.guilds.fetch();
@@ -106,12 +120,61 @@ async function main() {
         }
     });
 
-    cl.on('interactionCreate', async (inter) => {
+    cl.on(Events.InteractionCreate, async (inter) => {
         await cp.Dispatch(inter);
     });
 
-    cl.on('messageCreate', async (msg) => {
+    cl.on(Events.MessageCreate, async (msg) => {
         await cp.Dispatch(msg);
+    });
+
+
+    // check user on connect to voice channel and send gif to text channel
+    cl.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+      const GREETING_TIMEOUT = 5 * 60 * 1000;
+
+      if (!(!oldState?.channel && !!newState?.channel)) return;
+
+      try {
+        const user = await UsersGif.findOne({
+          where: {
+            discordId: `<@${newState.member.user.id}>`,
+            guildId: newState.guild.id,
+          },
+        });
+
+        if (!user) return;
+
+        if (
+          !!user?.lastSent &&
+          new Date().valueOf() - user.lastSent.valueOf() < GREETING_TIMEOUT
+        ) return;
+
+        const textChannelId = newState.channel.guild.channels.cache
+          .filter((c) => c.type === ChannelType.GuildText)
+          .first().id;
+
+        const textChannel = cl.channels.cache.get(
+          textChannelId
+        ) as TextChannel;
+
+        textChannel.send({
+          embeds: [
+            {
+              title: `Кто это тут зашел? Ну привет, ${newState.member.user.username}`,
+              image: {
+                url: user.gif,
+              },
+              color: Math.floor(Math.random() * 16777215),
+            },
+          ],
+        });
+
+        await user.update({'lastSent': new Date()});
+
+      } catch (error) {
+        logger.error(error);
+      }
     });
 
     await cl.login(config.get().DIS_TOKEN);

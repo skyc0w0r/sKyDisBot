@@ -18,6 +18,7 @@ import { LoopMode } from '../Interface/LoopMode.js';
 import YandexService from './YandexService.js';
 import { YandexTrack } from '../Model/AudioManager/YandexTrack.js';
 import Track from '../Model/Yandex/Track.js';
+import { ActualTextChannel } from '../Interface/Util.js';
 
 class AudioManagerService extends BaseService {
     private audioConverter: AudioConverter;
@@ -157,7 +158,7 @@ class AudioManagerService extends BaseService {
             await callback(cmd);
         }
         catch (e) {
-            await cmd.Channel.send('Something went wrong, try again later');
+            await (cmd.Channel as ActualTextChannel).send('Something went wrong, try again later');
             this.logger.warn(human._s(cmd), 'Got error, while processing message', e);
         }
     }

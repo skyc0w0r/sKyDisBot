@@ -4,17 +4,18 @@ import { UserPromtResult } from '../../Interface/UserPromtResult.js';
 import CommandParserService from '../../Service/CommandParserService.js';
 import { CommandParamCollection } from './CommandOption.js';
 import { InteractionCommand, MessageCommand } from './index.js';
+import { ActualTextChannel } from '../../Interface/Util.js';
 
 export class BaseCommand {
     public get User(): Discord.GuildMember {
         return this.user;
     }
-    public get Channel(): Discord.TextBasedChannel {
+    public get Channel(): ActualTextChannel {
         if (this.isByInteraction()) {
-            return this.Interaction.channel;
+            return this.Interaction.channel as ActualTextChannel;
         }
         if (this.isByMessage()) {
-            return this.Message.channel;
+            return this.Message.channel as ActualTextChannel;
         }
         return undefined;
     }
@@ -63,7 +64,7 @@ export class BaseCommand {
             if (new Date().getTime() - this.Interaction.createdAt.getTime() < 15 * 60 * 1000) {
                 return await this.Interaction.followUp(content) as Discord.Message;
             } else {
-                return await this.Interaction.channel.send(content);
+                return await (this.Interaction.channel as ActualTextChannel).send(content);
             }
         }
         return undefined;

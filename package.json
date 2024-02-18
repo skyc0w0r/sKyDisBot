@@ -7,7 +7,7 @@
     "dev": "nodemon ./src/index.ts",
     "clean": "rimraf coverage build tmp",
     "build": "tsc -p tsconfig.release.json",
-    "prebuild": "npm run lint",
+    "prebuild": "yarn run lint",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "jest",
     "test:cover": "jest --coverage",
@@ -45,6 +45,7 @@
     "sqlite3": "^5.1.7",
     "utf-8-validate": "^6.0.3",
     "ytdl-core": "^4.11.5",
-    "zlib-sync": "^0.1.9"
+    "zlib-sync": "^0.1.9",
+    "sequelize": "^6.23.1"
   }
 }

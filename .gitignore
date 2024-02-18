@@ -35,4 +35,4 @@ database.json
 cache/
 log4js.config.json
 crash*.txt
-db.sqlite
+*.sqlite
