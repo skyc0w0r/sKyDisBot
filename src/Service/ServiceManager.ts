@@ -32,6 +32,13 @@ class ServiceManager {
         }
         return null;
     }
+
+    public GetRequiredService<T extends BaseService>(target: Constructable<T>): T {
+        const res = this.GetService(target);
+        if (!res) throw new Error(`Cannot find required service ${target}`);
+        
+        return res;
+    }
 }
 
 const singleton = new ServiceManager();

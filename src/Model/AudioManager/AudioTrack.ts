@@ -3,7 +3,7 @@ import { PassThrough, Readable } from 'stream';
 import AudioConverter from '../../Service/AudioConverter.js';
 import AudioConvertionInfo from '../AudioConverter/AudioConvertionInfo.js';
 import { BaseCommand } from '../CommandParser/BaseCommand.js';
-import { YouTubeTrack, WebTrack } from './index.js';
+import { YouTubeTrack, WebTrack, YandexTrack } from './index.js';
 
 export class AudioTrack extends EventEmitter {
     public Origin: BaseCommand;
@@ -47,5 +47,8 @@ export class AudioTrack extends EventEmitter {
     }
     public isWebTrack(): this is WebTrack {
         return this instanceof WebTrack;
+    }
+    public isYandexMusicTrack(): this is YandexTrack {
+        return this instanceof YandexTrack;
     }
 }

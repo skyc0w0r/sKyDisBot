@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import Logger from 'log4js';
 import { PassThrough, Readable } from 'stream';
 import ytdl from 'ytdl-core';
@@ -15,6 +14,7 @@ const YT_BASE_DATA_API_ADDRESS = 'https://youtube.googleapis.com/youtube/v3';
 class YouTubeService extends BaseService {
     private token: string;
     private logger: Logger.Logger;
+    
     constructor(accessToken: string) {
         super();
         this.token = accessToken;

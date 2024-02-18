@@ -1,5 +1,4 @@
 import Logger from 'log4js';
-import fetch from 'node-fetch';
 import { PassThrough, Readable } from 'stream';
 import human from '../human.js';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
@@ -42,38 +41,23 @@ class WebLoader extends BaseService {
                 return;
             }
             const sz = parseInt(res.headers.get('content-length') || '0');
-            // let szDown = 0;
             this.logger.info(this.identify(url), 'Data size', human.size(sz));
 
-            let finished = false;
-            res.body.on('data', (chunk) => {
-                // szDown += chunk.length;
-                // this.logger.trace(this.identify(url), 'progress', szDown, '/', sz);
-                pt.push(chunk);
-            });
-            res.body.on('close', () => {
-                if (!finished) {
-                    this.logger.info(this.identify(url), 'Download aborted (>close)');
-                    pt.emit('close');
+            const reader = res.body.getReader();
+            // let readSize = 0;
+            const pump = (res: ReadableStreamReadResult<Uint8Array>) => {
+                if (res.done) {
+                    pt.end();
+                    return;
                 }
-            });
-            res.body.on('end', () => {
-                finished = true;
-                this.logger.info(this.identify(url), 'Download finished (>end)');
-                pt.end();
-            });
-            res.body.on('error', (e) => {
-                this.logger.warn(this.identify(url), 'Download error', e);
-                pt.emit('error', e);
-            });
-
-            pt.on('close', () => {
-                if (res.body && !finished) {  
-                    this.logger.warn(this.identify(url), 'Trying to abort');
-                    // res.body is actually a PassThrough, but types are messed up with node-fetch
-                    (res.body as unknown as Readable).destroy();
-                }
-            });
+                // readSize += res.value.length;
+                // this.logger.trace('read', readSize, 'of', sz);
+                
+                pt.push(res.value);
+                reader.read().then(pump);
+            };
+            
+            reader.read().then(pump);
         }).catch(e => {
             this.logger.warn(this.identify(url), 'Failed to download', e);
             pt.emit('close');

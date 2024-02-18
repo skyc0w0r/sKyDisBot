@@ -10,6 +10,7 @@ interface Config {
     COMMAND_PREFIX: string
     WEB_USER_AGENT: string
     YT_CUSTOM_COOKIE: string
+    YANDEX_MUSIC_TOKEN: string
 }
 
 const PLACEHOLDER = '[change_me]';
@@ -22,6 +23,7 @@ const DefaultConfig: Config = {
     COMMAND_PREFIX: '!',
     WEB_USER_AGENT: PLACEHOLDER,
     YT_CUSTOM_COOKIE: '',
+    YANDEX_MUSIC_TOKEN: '',
 };
 const configPath = resolve(process.env.CONFIG_PATH || join(process.cwd(), 'config.json'));
 let CurrentConfig: Config | undefined = undefined;

@@ -289,22 +289,61 @@ class CommandParserService extends BaseService {
                             name: 'aliases',
                             value: `\`\`\`asciidoc\n${Object.keys(this.aliases).map(c => `${c} :: ${this.aliases[c].command.FullName}`).join('\n')}\`\`\``
                         },
-                        ...Object.keys(this.categories).map(c => {
-                            return {
-                                name: c,
-                                value: this.categories[c].displayContent()
-                            };
-                        }),
+                        // ...Object.keys(this.categories).map(c => {
+                        //     return {
+                        //         name: c,
+                        //         value: this.categories[c].displayContent()
+                        //     };
+                        // }),
+                        ...Object.keys(this.categories)
+                            .map(c => {
+                                return { title: c, blocks: this.categories[c].getDisplayContentBlocks() };
+                            }).reduce((total, x) => {
+                                let index = 1;
+                                for (const item of x.blocks) {
+                                    total.push({name: `${x.title}#${index++}`, value: item});
+                                }
+                                return total;
+                            }, []),
                     ]
                 }
             ]
         };
     }
 
-    private displayContent(spaces = 0): string {
+    private getDisplayContentBlocks(spaces = 0): Array<string> {
+        const res = new Array<string>();
+        let i = 0;
+        
+        for (;;) {
+            const keys = Object.keys(this.commands).slice(i * 10, (i + 1) * 10);
+            if (keys.length === 0) break;
+
+            const commands = {};
+            for (const key of keys) {
+                commands[key] = this.commands[key];
+            }
+            res.push(this.displayContent(commands, spaces));
+            i++;
+        }
+
+        for (const k of Object.keys(this.categories)) {
+            const cat = this.categories[k];
+            const blocks = cat.getDisplayContentBlocks(spaces + 2);
+            for (const block of blocks) {
+                res.push(block);
+            }
+        }
+
+        return res;
+    }
+
+    private displayContent(commands?: CommandCollection | undefined, spaces = 0): string {
+        if (!commands) commands = this.commands;
+
         let s = '```asciidoc\n';
-        for (const k of Object.keys(this.commands)) {
-            const cmd = this.commands[k];
+        for (const k of Object.keys(commands)) {
+            const cmd = commands[k];
             s += ''.padEnd(spaces, ' ');
             s += cmd.Name;
             s += ' ';
@@ -327,12 +366,6 @@ class CommandParserService extends BaseService {
             s += ' (';
             s += `${cmd.Arguments.map(c => `${c.id}=${c.description}`).join(', ')}`;
             s += ')\n';
-        }
-        for (const k of Object.keys(this.categories)) {
-            const cat = this.categories[k];
-            s += ''.padEnd(spaces, ' ');
-            s += k;
-            s += cat.displayContent(spaces + 2);
         }
 
         s += '```';

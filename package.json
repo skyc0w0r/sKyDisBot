@@ -4,6 +4,7 @@
   "description": "Discord bot version 3",
   "scripts": {
     "start": "node --experimental-modules build",
+    "dev": "nodemon ./src/index.ts",
     "clean": "rimraf coverage build tmp",
     "build": "tsc -p tsconfig.release.json",
     "prebuild": "npm run lint",

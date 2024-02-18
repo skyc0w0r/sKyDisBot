@@ -13,6 +13,7 @@ import { writeFileSync } from 'fs';
 import human from './human.js';
 import { REST } from '@discordjs/rest';
 import UtilService from './Service/UtilService.js';
+import YandexService from './Service/YandexService.js';
 
 async function main() {
     config.check();
@@ -26,7 +27,8 @@ async function main() {
         .AddService(WebLoader, new WebLoader(config.get().WEB_USER_AGENT))
         .AddService(AudioConverter, new AudioConverter())
         .AddService(AudioManagerService, new AudioManagerService())
-        .AddService(UtilService, new UtilService());
+        .AddService(UtilService, new UtilService())
+        .AddService(YandexService, new YandexService(config.get().YANDEX_MUSIC_TOKEN));
 
     GlobalServiceManager().Init();
 
