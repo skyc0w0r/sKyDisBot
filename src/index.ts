@@ -130,52 +130,52 @@ async function main() {
 
 
     // check user on connect to voice channel and send gif to text channel
-    cl.on(Events.VoiceStateUpdate, async (oldState, newState) => {
-      const GREETING_TIMEOUT = 5 * 60 * 1000;
+    // cl.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+    //   const GREETING_TIMEOUT = 5 * 60 * 1000;
 
-      if (!(!oldState?.channel && !!newState?.channel)) return;
+    //   if (!(!oldState?.channel && !!newState?.channel)) return;
 
-      try {
-        const user = await UsersGif.findOne({
-          where: {
-            discordId: `<@${newState.member.user.id}>`,
-            guildId: newState.guild.id,
-          },
-        });
+    //   try {
+    //     const user = await UsersGif.findOne({
+    //       where: {
+    //         discordId: `<@${newState.member.user.id}>`,
+    //         guildId: newState.guild.id,
+    //       },
+    //     });
 
-        if (!user) return;
+    //     if (!user) return;
 
-        if (
-          !!user?.lastSent &&
-          new Date().valueOf() - user.lastSent.valueOf() < GREETING_TIMEOUT
-        ) return;
+    //     if (
+    //       !!user?.lastSent &&
+    //       new Date().valueOf() - user.lastSent.valueOf() < GREETING_TIMEOUT
+    //     ) return;
 
-        const textChannelId = newState.channel.guild.channels.cache
-          .filter((c) => c.type === ChannelType.GuildText)
-          .first().id;
+    //     const textChannelId = newState.channel.guild.channels.cache
+    //       .filter((c) => c.type === ChannelType.GuildText)
+    //       .first().id;
 
-        const textChannel = cl.channels.cache.get(
-          textChannelId
-        ) as TextChannel;
+    //     const textChannel = cl.channels.cache.get(
+    //       textChannelId
+    //     ) as TextChannel;
 
-        textChannel.send({
-          embeds: [
-            {
-              title: `Кто это тут зашел? Ну привет, ${newState.member.user.username}`,
-              image: {
-                url: user.gif,
-              },
-              color: Math.floor(Math.random() * 16777215),
-            },
-          ],
-        });
+    //     textChannel.send({
+    //       embeds: [
+    //         {
+    //           title: `Кто это тут зашел? Ну привет, ${newState.member.user.username}`,
+    //           image: {
+    //             url: user.gif,
+    //           },
+    //           color: Math.floor(Math.random() * 16777215),
+    //         },
+    //       ],
+    //     });
 
-        await user.update({'lastSent': new Date()});
+    //     await user.update({'lastSent': new Date()});
 
-      } catch (error) {
-        logger.error(error);
-      }
-    });
+    //   } catch (error) {
+    //     logger.error(error);
+    //   }
+    // });
 
     await cl.login(config.get().DIS_TOKEN);
 
