@@ -321,7 +321,10 @@ class AudioManagerService extends BaseService {
                 return;
             } else {
                 await p.joinVoice(cmd.User.voice.channel as Discord.VoiceChannel);
+                this.logger.debug(human._s(cmd.Guild), 'Joined voice channel', human._s(p.Channel));
             }
+        } else {
+            this.logger.debug(human._s(cmd.Guild), 'Current voice channel', human._s(p.Channel));
         }
 
         const q = cmd.Params['query'].value;

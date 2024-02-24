@@ -13,6 +13,7 @@ import Album from '../Model/Yandex/Album.js';
 import { escape } from 'querystring';
 import SearchResult from '../Model/Yandex/SearchResult.js';
 
+// https://oauth.yandex.ru/authorize?response_type=token&client_id=23cabbbdc6cd418abb4b39c32c41195d
 const YM_API_HOST = 'https://api.music.yandex.net';
 
 class YandexService extends BaseService {
@@ -37,7 +38,7 @@ class YandexService extends BaseService {
 
     public async SearchTrack(q: string): Promise<Array<Track>> {
         this.logger.info('Searching for', q);
-        const info = await this.ApiRequest('GET', `/search?type=track&page=0&text=${escape(q)}`);
+        const info = await this.ApiRequest('GET', `search?type=track&page=0&text=${escape(q)}`);
         const sr = new SearchResult(info.Result);
 
         this.logger.info('Got search results', sr.Tracks.length);
@@ -46,7 +47,7 @@ class YandexService extends BaseService {
 
     public async GetAlbum(albumId: string): Promise<Album> {
         this.logger.info('Getting album', albumId);
-        const info = await this.ApiRequest('GET', `/albums/${albumId}/with-tracks`);
+        const info = await this.ApiRequest('GET', `albums/${albumId}/with-tracks`);
         const album = new Album(info.Result);
 
         this.logger.info('Got album', album.Title);
@@ -55,7 +56,7 @@ class YandexService extends BaseService {
 
     public async GetPlaylist(userId: string, playlistId: string): Promise<Playlist> {
         this.logger.info('Getting playlist', playlistId, 'of', userId);
-        const info = await this.ApiRequest('GET', `/users/${userId}/playlists/${playlistId}`);
+        const info = await this.ApiRequest('GET', `users/${userId}/playlists/${playlistId}`);
         const playlist = new Playlist(info.Result);
 
         this.logger.info('Got playlist', playlist.Title, 'with', playlist.TrackCount, 'tracks');
@@ -118,12 +119,14 @@ class YandexService extends BaseService {
             method: method,
             headers: {
                 'Authorization': `OAuth ${this.token}`,
-                'Accept-Language': 'ru'
-            },
+                'Accept-Language': 'ru',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }, 
             body: body,
         });
 
-        if (!resp.ok) throw new Error(`Failed to ${method} ${handle}: ${resp.status}${resp.statusText}`);
+        if (!resp.ok) throw new Error(`Failed to ${method} ${handle}: ${resp.status} ${resp.statusText}`);
         const data = await resp.json();
         return new ApiResponse(data);
     }
