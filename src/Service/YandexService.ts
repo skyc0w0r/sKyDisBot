@@ -1,20 +1,22 @@
+import { createHash } from 'crypto';
+import https from 'https';
 import Logger from 'log4js';
-import { BaseService } from '../Interface/ServiceManagerInterface.js';
-import Track from '../Model/Yandex/Track.js';
+import { escape } from 'querystring';
 import { PassThrough, Readable } from 'stream';
+import { GlobalServiceManager } from './ServiceManager.js';
+import WebLoader from './WebLoader.js';
+import { BaseService } from '../Interface/ServiceManagerInterface.js';
+import Album from '../Model/Yandex/Album.js';
 import ApiResponse from '../Model/Yandex/ApiResponse.js';
+import Playlist from '../Model/Yandex/Playlist.js';
+import SearchResult from '../Model/Yandex/SearchResult.js';
+import Track from '../Model/Yandex/Track.js';
 import TrackDownloadInfo from '../Model/Yandex/TrackDownloadInfo.js';
 import TrackSecret from '../Model/Yandex/TrackSecret.js';
-import { createHash } from 'crypto';
-import WebLoader from './WebLoader.js';
-import { GlobalServiceManager } from './ServiceManager.js';
-import Playlist from '../Model/Yandex/Playlist.js';
-import Album from '../Model/Yandex/Album.js';
-import { escape } from 'querystring';
-import SearchResult from '../Model/Yandex/SearchResult.js';
 
 // https://oauth.yandex.ru/authorize?response_type=token&client_id=23cabbbdc6cd418abb4b39c32c41195d
-const YM_API_HOST = 'https://api.music.yandex.net';
+const YM_API_URL = 'https://api.music.yandex.net';
+const YM_API_HOST = 'api.music.yandex.net';
 
 class YandexService extends BaseService {
     private wl: WebLoader;
@@ -113,8 +115,8 @@ class YandexService extends BaseService {
         return pt;
     }
 
-    private async ApiRequest(method: string, handle: string, body?: BodyInit): Promise<ApiResponse> {
-        const url = `${YM_API_HOST}/${handle}`;
+    private async _ApiRequest(method: string, handle: string, body?: BodyInit): Promise<ApiResponse> {
+        const url = `${YM_API_URL}/${handle}`;
         const resp = await fetch(url, {
             method: method,
             headers: {
@@ -126,8 +128,65 @@ class YandexService extends BaseService {
             body: body,
         });
 
-        if (!resp.ok) throw new Error(`Failed to ${method} ${handle}: ${resp.status} ${resp.statusText}`);
+        if (!resp.ok) {
+            const msg = await resp.text();
+            this.logger.debug('Yandex API error');
+            this.logger.debug('Err headers:', resp.headers);
+            this.logger.debug('Err body:', msg); 
+            throw new Error(`Failed to ${method} ${handle}: ${resp.status} ${resp.statusText}`);
+        }
         const data = await resp.json();
+        return new ApiResponse(data);
+    }
+
+    private async ApiRequest(method: string, handle: string, body?: BodyInit): Promise<ApiResponse> {
+        const opts: https.RequestOptions = {
+            hostname: YM_API_HOST,
+            port: '443',
+            path: `/${handle}`,
+            method: method,
+            headers: {
+                authorization: `OAuth ${this.token}`,
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
+            }
+        };
+        let bodyData: string = undefined;
+        if (body) {
+            if (body instanceof URLSearchParams) {
+                bodyData = body.toString();
+                opts.headers['content-type'] = 'application/x-www-form-urlencoded';
+            } else {
+                throw new Error('Not supported request body');
+            }
+            opts.headers['content-length'] = bodyData.length;
+        }
+        const data = await new Promise<unknown>((resolve, reject) => {
+            const req = https.request(opts, (res) => {
+                if (res.statusCode < 200 || res.statusCode > 299) {
+                    reject(new Error(`API returned: ${res.statusCode} ${res.statusMessage}`));
+                    return;
+                }
+                const chunks = [];
+    
+                res.on('data', (d) => {
+                    chunks.push(d);
+                });
+        
+                res.on('end', () => {
+                    const fulldata = Buffer.concat(chunks);
+                    const j = JSON.parse(fulldata.toString());
+                    resolve(j);
+                });
+
+                res.on('error', (err) => reject(err));
+            });
+        
+            if (bodyData) {
+                req.write(bodyData);
+            }
+            req.end();
+        });
+
         return new ApiResponse(data);
     }
 }
