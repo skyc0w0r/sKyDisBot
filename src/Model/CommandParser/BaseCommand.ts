@@ -64,7 +64,7 @@ export class BaseCommand {
             if (new Date().getTime() - this.Interaction.createdAt.getTime() < 15 * 60 * 1000) {
                 return await this.Interaction.followUp(content) as Discord.Message;
             } else {
-                return await (this.Interaction.channel as ActualTextChannel).send(content);
+                return await this.Interaction.channel.send(content);
             }
         }
         return undefined;

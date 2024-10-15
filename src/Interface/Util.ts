@@ -1,3 +1,3 @@
-import { StageChannel, TextBasedChannel } from 'discord.js';
+import { SendableChannels, StageChannel, TextBasedChannel } from 'discord.js';
 
-export type ActualTextChannel = Exclude<TextBasedChannel, StageChannel>;
+export type ActualTextChannel = SendableChannels
