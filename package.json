@@ -6,9 +6,8 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": "./build/index.js",
-  "packageManager": "yarn@4.5.0",
   "scripts": {
-    "start": "node --experimental-modules build",
+    "start": "node --experimental-modules --use-system-ca build",
     "dev": "nodemon ./src/index.ts",
     "clean": "rimraf coverage build tmp",
     "build": "tsc -p tsconfig.release.json",
@@ -16,23 +15,24 @@
     "test": "jest",
     "test:cover": "jest --coverage"
   },
+  "devDependencies": {
+    "node-gyp": "^11.2.0",
+    "typescript": "^5.8.3"
+  },
   "dependencies": {
-    "@discordjs/opus": "^0.9.0",
-    "@discordjs/rest": "^2.4.0",
-    "@discordjs/voice": "^0.17.0",
-    "bufferutil": "^4.0.8",
-    "discord-api-types": "^0.37.102",
-    "discord.js": "^14.16.3",
+    "@discordjs/opus": "^0.10.0",
+    "@discordjs/rest": "^2.5.0",
+    "@discordjs/voice": "^0.18.0",
+    "@distube/ytdl-core": "^4.16.10",
+    "bufferutil": "^4.0.9",
+    "discord-api-types": "^0.38.8",
+    "discord.js": "^14.19.3",
     "erlpack": "^0.1.4",
     "log4js": "^6.9.1",
-    "sequelize": "^6.37.4",
-    "sodium": "skyc0w0r/node-sodium",
+    "sequelize": "^6.37.7",
+    "sodium": "github:skyc0w0r/node-sodium",
     "sqlite3": "^5.1.7",
-    "utf-8-validate": "^6.0.4",
-    "ytdl-core": "^4.11.5",
-    "zlib-sync": "^0.1.9"
-  },
-  "devDependencies": {
-    "typescript": "^5.6.3"
+    "utf-8-validate": "^6.0.5",
+    "zlib-sync": "^0.1.10"
   }
 }

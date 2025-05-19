@@ -1,6 +1,7 @@
 import Logger from 'log4js';
 import { PassThrough, Readable } from 'stream';
-import ytdl from 'ytdl-core';
+// import ytdl from 'ytdl-core';
+import ytdl from '@distube/ytdl-core';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import RequestParamCollection from '../Model/General/RequestParamCollection.js';
 import PlaylistItemListResponse from '../Model/YouTube/PlaylistItemListResponse.js';
@@ -14,7 +15,8 @@ const YT_BASE_DATA_API_ADDRESS = 'https://youtube.googleapis.com/youtube/v3';
 class YouTubeService extends BaseService {
     private token: string;
     private logger: Logger.Logger;
-    
+    private ytdlAgent: ytdl.Agent;
+
     constructor(accessToken: string) {
         super();
         this.token = accessToken;
@@ -22,8 +24,17 @@ class YouTubeService extends BaseService {
     }
 
     public Init(): void {
-        return;
+        const cookieString = config.get().YT_CUSTOM_COOKIE;
+        const cookies = cookieString
+            .split('; ')
+            .filter(c => c)
+            .map(c => c.split('='))
+            .map(c => ({ name: c[0], value: c.slice(1).join('=') }));
+
+        this.logger.debug('Cookies', cookies);
+        this.ytdlAgent = ytdl.createAgent(cookies);
     }
+
     public Destroy(): void {
         return;
     }
@@ -92,14 +103,10 @@ class YouTubeService extends BaseService {
         let finished = false;
         let validTrack = false;
         const watchIt = (begin = 0, retry = 0) => new Promise<void>((resolve) => {
-            const opts: ytdl.downloadOptions = { filter: 'audioonly' };
-            if (config.get().YT_CUSTOM_COOKIE) {
-                opts.requestOptions = {
-                    headers: {
-                        cookie: config.get().YT_CUSTOM_COOKIE
-                    }
-                };
-            }
+            const opts: ytdl.downloadOptions = {
+                filter: 'audioonly',
+                // agent: this.ytdlAgent
+            };
             const src = ytdl(id, opts);
             let len = 0;
             src.on('data', (chunk: Uint8Array) => {
@@ -145,7 +152,7 @@ class YouTubeService extends BaseService {
         return pt;
     }
 
-    private async getData<Type>(method: string, TypeNew: new(obj?: unknown) => Type, params?: RequestParamCollection): Promise<Type> {
+    private async getData<Type>(method: string, TypeNew: new (obj?: unknown) => Type, params?: RequestParamCollection): Promise<Type> {
         let url = `${YT_BASE_DATA_API_ADDRESS}/${method}?key=${this.token}&`;
         if (params) {
             const paramString = Object.keys(params).map(p => `${p}=${encodeURIComponent(params[p] as string)}`).join('&');
