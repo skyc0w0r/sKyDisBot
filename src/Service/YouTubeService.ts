@@ -9,6 +9,7 @@ import SearchResponse from '../Model/YouTube/SearchResponse.js';
 import Video from '../Model/YouTube/Video.js';
 import VideosResponse from '../Model/YouTube/VideosResponse.js';
 import config from '../config.js';
+import { existsSync, readFileSync } from 'fs';
 
 const YT_BASE_DATA_API_ADDRESS = 'https://youtube.googleapis.com/youtube/v3';
 
@@ -24,15 +25,15 @@ class YouTubeService extends BaseService {
     }
 
     public Init(): void {
-        const cookieString = config.get().YT_CUSTOM_COOKIE;
-        const cookies = cookieString
-            .split('; ')
-            .filter(c => c)
-            .map(c => c.split('='))
-            .map(c => ({ name: c[0], value: c.slice(1).join('=') }));
-
-        this.logger.debug('Cookies', cookies);
-        this.ytdlAgent = ytdl.createAgent(cookies);
+        const cookieFile = config.get().YT_CUSTOM_COOKIE;
+        if (existsSync(cookieFile)) {
+            const cookies = JSON.parse(readFileSync(cookieFile).toString())
+            // this.logger.debug('Cookies', cookies);
+            this.ytdlAgent = ytdl.createAgent(cookies);
+        }
+        else {
+            this.ytdlAgent = ytdl.createAgent();
+        }
     }
 
     public Destroy(): void {
@@ -105,7 +106,7 @@ class YouTubeService extends BaseService {
         const watchIt = (begin = 0, retry = 0) => new Promise<void>((resolve) => {
             const opts: ytdl.downloadOptions = {
                 filter: 'audioonly',
-                // agent: this.ytdlAgent
+                agent: this.ytdlAgent
             };
             const src = ytdl(id, opts);
             let len = 0;
