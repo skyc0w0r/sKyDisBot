@@ -580,7 +580,7 @@ class CommandParserService extends BaseService {
             });
         } else if (creator instanceof Discord.CommandInteraction) {
             // not supported (yet?)
-            if (!(creator.member instanceof Discord.GuildMember)) {
+            if (!creator.isChatInputCommand() || !(creator.member instanceof Discord.GuildMember)) {
                 return undefined;
             }
 

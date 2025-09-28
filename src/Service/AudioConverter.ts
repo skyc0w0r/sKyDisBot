@@ -124,6 +124,8 @@ class AudioConverter extends BaseService {
         child.stdout.on('error', (e) => this.logger.warn(this.identify(sourceStream), 'out', e));
 
         const task = new Promise<AudioMetaInfo>((resolve) => {
+            sourceStream.on('error', () => resolve(new AudioMetaInfo('', 'Unknown track', -1)));
+
             let text = '';
             child.stderr.on('data', data => {
                 text += data;
@@ -143,7 +145,7 @@ class AudioConverter extends BaseService {
 
                 let duration = 0;
                 let multiplier = 3600;
-                for (const s of dura.split(':')) {
+                for (const s of dura?.split(':') ?? []) {
                     try {
                         duration += parseInt(s) * multiplier;
                     }

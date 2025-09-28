@@ -1,4 +1,4 @@
-import { AudioTrack } from './index.js';
+import { AudioTrack } from '.';
 
 export interface LastTrackCollection {
     [key: string]: AudioTrack

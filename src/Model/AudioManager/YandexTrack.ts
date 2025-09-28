@@ -2,7 +2,7 @@ import AudioConverter from '../../Service/AudioConverter.js';
 import YandexService from '../../Service/YandexService.js';
 import { BaseCommand } from '../CommandParser/BaseCommand.js';
 import Track from '../Yandex/Track.js';
-import { AudioTrack } from './AudioTrack.js';
+import { AudioTrack } from './index.js';
 
 export class YandexTrack extends AudioTrack {
     public override get Title(): string {

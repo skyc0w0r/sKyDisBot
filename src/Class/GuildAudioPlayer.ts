@@ -7,10 +7,10 @@ import { LoopMode } from '../Interface/LoopMode.js';
 import { AudioPlayer, AudioPlayerState, AudioPlayerStatus, createAudioResource, DiscordGatewayAdapterCreator, entersState, joinVoiceChannel, StreamType, VoiceConnection, VoiceConnectionDisconnectReason, VoiceConnectionState, VoiceConnectionStatus } from '@discordjs/voice';
 
 interface GuildAudioPlayerEvents {
-    trackError: (track: AudioTrack) => void
+    trackError: (track: AudioTrack, error: Error) => void
 }
 
-export interface IGuildAudioPlayer {
+export interface IGuildAudioPlayer extends EventEmitter {
     on<U extends keyof GuildAudioPlayerEvents>(
         event: U,
         listener: GuildAudioPlayerEvents[U]
@@ -110,7 +110,7 @@ export class GuildAudioPlayer extends EventEmitter implements IGuildAudioPlayer 
         this.player.on('stateChange', this.onPlayerStateChanged);
         this.player.on('error', (e) => {
             this.logger.warn(human._s(this), 'Player error', e.name, e.message);
-            this.emit('trackError', e.resource.metadata as AudioTrack);
+            this.emit('trackError', e.resource.metadata as AudioTrack, e);
         });
 
         this.voice.subscribe(this.player);

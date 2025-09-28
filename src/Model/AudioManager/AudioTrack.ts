@@ -1,9 +1,8 @@
 import EventEmitter from 'events';
-import { PassThrough, Readable } from 'stream';
+import { Readable } from 'stream';
 import AudioConverter from '../../Service/AudioConverter.js';
 import AudioConvertionInfo from '../AudioConverter/AudioConvertionInfo.js';
 import { BaseCommand } from '../CommandParser/BaseCommand.js';
-import { YouTubeTrack, WebTrack, YandexTrack } from './index.js';
 
 export class AudioTrack extends EventEmitter {
     public Origin: BaseCommand;
@@ -40,15 +39,5 @@ export class AudioTrack extends EventEmitter {
         if (this.info) {
             this.audioConverter.abortConvertion(this.info);
         }
-    }
-
-    public isYouTubeTrack(): this is YouTubeTrack {
-        return this instanceof YouTubeTrack;
-    }
-    public isWebTrack(): this is WebTrack {
-        return this instanceof WebTrack;
-    }
-    public isYandexMusicTrack(): this is YandexTrack {
-        return this instanceof YandexTrack;
     }
 }

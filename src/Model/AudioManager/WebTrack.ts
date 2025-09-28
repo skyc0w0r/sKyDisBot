@@ -37,7 +37,9 @@ export class WebTrack extends AudioTrack {
         });
 
         s.pipe(pt1);
+        s.on('error', e => pt1.emit('error', e));
         s.pipe(pt2);
+        s.on('error', e => pt2.emit('error', e));
 
         this.audioConverter.getMetadata(pt1).then(meta => {
             if (meta.Title) {

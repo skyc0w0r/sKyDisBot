@@ -35,10 +35,8 @@ class WebLoader extends BaseService {
                 'User-Agent': this.userAgent,
             },
         }).then(res => {
-            if (!res.ok) {
-                pt.end();
-                pt.destroy();
-                return;
+            if (!res.ok || res.status !== 200) {
+                throw new Error(`Got response code ${res.status}`);
             }
             const sz = parseInt(res.headers.get('content-length') || '0');
             this.logger.info(this.identify(url), 'Data size', human.size(sz));
@@ -59,7 +57,13 @@ class WebLoader extends BaseService {
             
             reader.read().then(pump);
         }).catch(e => {
-            this.logger.warn(this.identify(url), 'Failed to download', e);
+            if (e instanceof Error) {
+                this.logger.warn(this.identify(url), 'Failed to download:', e.message);
+                pt.emit('error', e);
+            }
+            else {
+                this.logger.warn(this.identify(url), 'Failed to download:', e);
+            }
             pt.emit('close');
             pt.destroy();
         });

@@ -27,7 +27,7 @@ class YouTubeService extends BaseService {
     public Init(): void {
         const cookieFile = config.get().YT_CUSTOM_COOKIE;
         if (existsSync(cookieFile)) {
-            const cookies = JSON.parse(readFileSync(cookieFile).toString())
+            const cookies = JSON.parse(readFileSync(cookieFile).toString());
             // this.logger.debug('Cookies', cookies);
             this.ytdlAgent = ytdl.createAgent(cookies);
         }
@@ -69,7 +69,7 @@ class YouTubeService extends BaseService {
         const items = new Array<Video>();
         let nextPageToken;
 
-        // eslint-disable-next-line no-constant-condition
+         
         while (true) {
             const r1params: RequestParamCollection = {
                 part: 'id,snippet',
