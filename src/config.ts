@@ -9,6 +9,7 @@ interface Config {
     TEST_GUILD_ID: string
     COMMAND_PREFIX: string
     WEB_USER_AGENT: string
+    YT_PLAYER_ID: string
     YT_CUSTOM_COOKIE: string
     YANDEX_MUSIC_TOKEN: string
 }
@@ -22,6 +23,7 @@ const DefaultConfig: Config = {
     TEST_GUILD_ID: PLACEHOLDER,
     COMMAND_PREFIX: '!',
     WEB_USER_AGENT: PLACEHOLDER,
+    YT_PLAYER_ID: '',
     YT_CUSTOM_COOKIE: '',
     YANDEX_MUSIC_TOKEN: '',
 };

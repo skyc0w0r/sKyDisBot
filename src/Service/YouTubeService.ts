@@ -1,7 +1,5 @@
 import Logger from 'log4js';
 import { PassThrough, Readable } from 'stream';
-// import ytdl from 'ytdl-core';
-import ytdl from '@distube/ytdl-core';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import RequestParamCollection from '../Model/General/RequestParamCollection.js';
 import PlaylistItemListResponse from '../Model/YouTube/PlaylistItemListResponse.js';
@@ -9,14 +7,15 @@ import SearchResponse from '../Model/YouTube/SearchResponse.js';
 import Video from '../Model/YouTube/Video.js';
 import VideosResponse from '../Model/YouTube/VideosResponse.js';
 import config from '../config.js';
-import { existsSync, readFileSync } from 'fs';
+import Innertube from 'youtubei.js';
+import { InnerTubeConfig } from 'youtubei.js/dist/src/types/Misc.js';
 
 const YT_BASE_DATA_API_ADDRESS = 'https://youtube.googleapis.com/youtube/v3';
 
 class YouTubeService extends BaseService {
     private token: string;
     private logger: Logger.Logger;
-    private ytdlAgent: ytdl.Agent;
+    private youtubeAgent: Innertube;
 
     constructor(accessToken: string) {
         super();
@@ -24,16 +23,23 @@ class YouTubeService extends BaseService {
         this.logger = Logger.getLogger('youtube');
     }
 
-    public Init(): void {
-        const cookieFile = config.get().YT_CUSTOM_COOKIE;
-        if (existsSync(cookieFile)) {
-            const cookies = JSON.parse(readFileSync(cookieFile).toString());
-            // this.logger.debug('Cookies', cookies);
-            this.ytdlAgent = ytdl.createAgent(cookies);
+    public async Init(): Promise<void> {
+        const opts: InnerTubeConfig = {};
+
+        const playerId = config.get().YT_PLAYER_ID;
+        if (playerId) {
+            opts.player_id = playerId;
+            this.logger.debug('Set player id', playerId);
         }
-        else {
-            this.ytdlAgent = ytdl.createAgent();
+
+        // TODO: add cookies
+        const cookie = config.get().YT_CUSTOM_COOKIE;
+        if (cookie) {
+            opts.cookie = cookie;
+            this.logger.debug('Set custom cookie');
         }
+
+        this.youtubeAgent = await Innertube.create(opts);
     }
 
     public Destroy(): void {
@@ -69,7 +75,7 @@ class YouTubeService extends BaseService {
         const items = new Array<Video>();
         let nextPageToken;
 
-         
+
         while (true) {
             const r1params: RequestParamCollection = {
                 part: 'id,snippet',
@@ -101,55 +107,59 @@ class YouTubeService extends BaseService {
         const pt = new PassThrough({
             highWaterMark: 10 * 1024 * 1024,
         });
-        let finished = false;
-        let validTrack = false;
-        const watchIt = (begin = 0, retry = 0) => new Promise<void>((resolve) => {
-            const opts: ytdl.downloadOptions = {
-                filter: 'audioonly',
-                agent: this.ytdlAgent
-            };
-            const src = ytdl(id, opts);
-            let len = 0;
-            src.on('data', (chunk: Uint8Array) => {
-                validTrack = true;
-                len += chunk.length;
-                if (len >= begin) {
-                    // pt.emit('data', chunk);
-                    pt.push(chunk);
+
+        (async () => {
+            let finished = false;
+            let validTrack = false;
+            let consumedLen = 0;
+            let retryCount = 0;
+
+            while (true) {
+                try {
+                    const videoStream = await this.youtubeAgent.download(id, { type: 'audio' });
+                    const reader = videoStream.getReader();
+            
+                    this.logger.debug(id, 'Started loading stream');
+                    let len = 0;
+                    while (true) {
+                        const chunk = await reader.read();
+                        if (chunk.done || !chunk.value) {
+                            finished = true;
+                            pt.end();
+                            this.logger.debug(id, 'Finished loading stream');
+                            break;
+                        }
+            
+                        validTrack = true;
+                        len += chunk.value.length;
+                        if (len >= consumedLen) {
+                            pt.push(chunk.value);
+                            consumedLen += chunk.value.length;
+                        }
+                    }
                 }
-            });
-            src.on('close', () => {
-                if (!finished) {
-                    pt.destroy();
-                    resolve();
+                catch (e) {
+                    if (!validTrack) {
+                        pt.emit('error', e);
+                        break;
+                    }
+                    retryCount++;
                 }
-            });
-            src.on('end', () => {
-                finished = true;
-                pt.end();
-                resolve();
-            });
-            src.on('error', (e) => {
-                // if (Object.keys(e).some(c => c === 'statusCode') && e['statusCode'] === 410) {
-                //     pt.emit('error', e);
-                // } else
-                if (!validTrack) {
-                    pt.emit('error', e);
-                } else if (retry > 4) {
-                    this.logger.warn('Retry', retry, 'for', id, 'with error:', e);
+                if (finished) {
+                    break;
+                }
+                if (retryCount >= 3) {
                     pt.emit('error', new Error('Max retries reached'));
-                } else {
-                    watchIt(len, retry + 1);
+                    break;
                 }
-                resolve();
-            });
-            pt.on('close', () => {
-                if (src && !finished) {
-                    src.destroy();
-                }
-            });
-        });
-        watchIt();
+            }
+
+            if (!finished) {
+                this.logger.warn(id, 'Failed to load, destroying stream');
+                pt.destroy();
+            }
+        })();
+
         return pt;
     }
 

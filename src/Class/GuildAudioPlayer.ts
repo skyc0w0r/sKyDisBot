@@ -2,29 +2,15 @@ import Discord from 'discord.js';
 import Logger from 'log4js';
 import human from '../human.js';
 import { AudioTrack } from '../Model/AudioManager/index.js';
-import EventEmitter from 'events';
+import EventEmitter from 'node:events';
 import { LoopMode } from '../Interface/LoopMode.js';
 import { AudioPlayer, AudioPlayerState, AudioPlayerStatus, createAudioResource, DiscordGatewayAdapterCreator, entersState, joinVoiceChannel, StreamType, VoiceConnection, VoiceConnectionDisconnectReason, VoiceConnectionState, VoiceConnectionStatus } from '@discordjs/voice';
 
 interface GuildAudioPlayerEvents {
-    trackError: (track: AudioTrack, error: Error) => void
+    trackError: [AudioTrack, Error]
 }
 
-export interface IGuildAudioPlayer extends EventEmitter {
-    on<U extends keyof GuildAudioPlayerEvents>(
-        event: U,
-        listener: GuildAudioPlayerEvents[U]
-    ): this
-    emit<U extends keyof GuildAudioPlayerEvents>(
-        event: U, ...args: Parameters<GuildAudioPlayerEvents[U]>
-    ): boolean
-    removeListener<U extends keyof GuildAudioPlayerEvents>(
-        event: U,
-        listener: GuildAudioPlayerEvents[U]
-    ): this
-}
-
-export class GuildAudioPlayer extends EventEmitter implements IGuildAudioPlayer {
+export class GuildAudioPlayer extends EventEmitter<GuildAudioPlayerEvents> {
     public get Guild(): Discord.Guild {
         return this.guild;
     }
