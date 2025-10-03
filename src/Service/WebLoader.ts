@@ -29,52 +29,44 @@ class WebLoader extends BaseService {
         const pt = new PassThrough({
             highWaterMark: 10 * 1024 * 1024
         });
-        fetch(url.toString(), {
-            redirect: 'follow',
-            headers: {
-                'User-Agent': this.userAgent,
-            },
-        }).then(res => {
-            if (!res.ok || res.status !== 200) {
-                throw new Error(`Got response code ${res.status}`);
-            }
-            const sz = parseInt(res.headers.get('content-length') || '0');
-            this.logger.info(this.identify(url), 'Data size', human.size(sz));
 
-            const reader = res.body.getReader();
-            // let readSize = 0;
-            const pump = (res: ReadableStreamReadResult<Uint8Array>) => {
-                if (res.done) {
-                    pt.end();
+        (async () => {
+            try {
+                const res = await fetch(url, {
+                    redirect: 'follow',
+                    headers: {
+                        'User-Agent': this.userAgent,
+                    },
+                });
+
+                if (!res.ok || res.status !== 200) {
+                    pt.destroy(new Error(`Got response code ${res.status}`));
                     return;
                 }
-                // readSize += res.value.length;
-                // this.logger.trace('read', readSize, 'of', sz);
-                
-                pt.push(res.value);
-                reader.read().then(pump);
-            };
-            
-            reader.read().then(pump);
-        }).catch(e => {
-            if (e instanceof Error) {
-                this.logger.warn(this.identify(url), 'Failed to download:', e.message);
-                pt.emit('error', e);
+                const sz = parseInt(res.headers.get('content-length') || '0');
+                this.logger.info(this.identify(url), 'Data size', human.size(sz));
+    
+                const reader = res.body.getReader();
+                while (true) {
+                    const chunk = await reader.read();
+                    pt.push(chunk.value);
+
+                    if (chunk.done) {
+                        break;
+                    }
+                }
+            } catch (error) {
+                this.logger.warn(this.identify(url), 'Failed to download:', error);
+                if (error instanceof Error) {
+                    pt.emit('error', error);
+                }
+            } finally {
+                pt.end();
             }
-            else {
-                this.logger.warn(this.identify(url), 'Failed to download:', e);
-            }
-            pt.emit('close');
-            pt.destroy();
-        });
+        })();
         
         return pt;
     }
-
-    // private async download(url: URL, maxRetries = 0): ReturnType<typeof fetch> {
-    //     const res = await fetch(url.toString(), { redirect: 'follow' });
-    //     return res;
-    // }
 
     private identify(obj: URL): number {
         if (!this.identifiers.has(obj)) {
