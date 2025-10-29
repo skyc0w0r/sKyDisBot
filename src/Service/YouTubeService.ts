@@ -7,7 +7,7 @@ import SearchResponse from '../Model/YouTube/SearchResponse.js';
 import Video from '../Model/YouTube/Video.js';
 import VideosResponse from '../Model/YouTube/VideosResponse.js';
 import config from '../config.js';
-import Innertube from 'youtubei.js';
+import Innertube, { Platform, Types } from 'youtubei.js';
 import { InnerTubeConfig } from 'youtubei.js/dist/src/types/Misc.js';
 
 const YT_BASE_DATA_API_ADDRESS = 'https://youtube.googleapis.com/youtube/v3';
@@ -40,6 +40,21 @@ class YouTubeService extends BaseService {
         }
 
         this.youtubeAgent = await Innertube.create(opts);
+        Platform.shim.eval = async (data: Types.BuildScriptResult, env: Record<string, Types.VMPrimative>) => {
+            const properties = [];
+            
+            if(env.n) {
+                properties.push(`n: exportedVars.nFunction("${env.n}")`)
+            }
+            
+            if (env.sig) {
+                properties.push(`sig: exportedVars.sigFunction("${env.sig}")`)
+            }
+            
+            const code = `${data.output}\nreturn { ${properties.join(', ')} }`;
+            
+            return new Function(code)();
+        }
     }
 
     public Destroy(): void {
