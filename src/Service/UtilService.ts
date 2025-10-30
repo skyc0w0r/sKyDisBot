@@ -62,10 +62,14 @@ export default class UtilService extends BaseService {
 
         this.logger.info('Deleting complete!');
 
-        if (cmd.isByMessage()) {
-            await cmd.Message.delete();
-        } else if (cmd.isByInteraction()) {
-            await cmd.Interaction.reply({ephemeral: true, content: 'Done!'});
+        try {
+            if (cmd.isByMessage()) {
+                await cmd.Message.delete();
+            } else if (cmd.isByInteraction()) {
+                await cmd.Interaction.reply({ephemeral: true, content: 'Done!'});
+            }
+        } catch (e) {
+            this.logger.info('Failed to finish deleting', e);
         }
     }
 }

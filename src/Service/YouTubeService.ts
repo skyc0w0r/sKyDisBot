@@ -18,7 +18,7 @@ class YouTubeService extends BaseService {
     private logger: Logger.Logger;
     private youtubeAgent: Innertube;
     private useExternalLoader: boolean;
-    private ytdlpCmd: string;
+    private externalLoaderCmd: string;
 
     constructor(accessToken: string) {
         super();
@@ -63,12 +63,12 @@ class YouTubeService extends BaseService {
         if (this.useExternalLoader) {
             for (const command of ['yt-dlp', './yt-dlp', 'yt-dlp.exe', './yt-dlp.exe']) {
                 if (!spawnSync(command, ['-h']).error) {
-                    this.ytdlpCmd = command;
+                    this.externalLoaderCmd = command;
                     this.logger.debug('Found yt-dlp as', command);
                     break;
                 }
             }
-            if (!this.ytdlpCmd) {
+            if (!this.externalLoaderCmd) {
                 this.useExternalLoader = false;
                 this.logger.warn('yt-dlp binary not found, external loader disabled');
             }
@@ -152,7 +152,7 @@ class YouTubeService extends BaseService {
 
         this.logger.debug(id, 'Started loading via yt-dlp');
 
-        const child = spawn('yt-dlp', [
+        const child = spawn(this.externalLoaderCmd, [
             '-x', '-o', '-',
             `https://youtu.be/${id}`,
         ]);
