@@ -11,6 +11,7 @@ interface Config {
     WEB_USER_AGENT: string
     YT_PLAYER_ID: string
     YT_CUSTOM_COOKIE: string
+    YT_EXTERNAL_LOADER: boolean
     YANDEX_MUSIC_TOKEN: string
 }
 
@@ -25,6 +26,7 @@ const DefaultConfig: Config = {
     WEB_USER_AGENT: PLACEHOLDER,
     YT_PLAYER_ID: '',
     YT_CUSTOM_COOKIE: '',
+    YT_EXTERNAL_LOADER: false,
     YANDEX_MUSIC_TOKEN: '',
 };
 const configPath = resolve(process.env.CONFIG_PATH || join(process.cwd(), 'config.json'));

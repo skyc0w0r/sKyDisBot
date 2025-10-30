@@ -9,6 +9,7 @@ import VideosResponse from '../Model/YouTube/VideosResponse.js';
 import config from '../config.js';
 import Innertube, { Platform, Types } from 'youtubei.js';
 import { InnerTubeConfig } from 'youtubei.js/dist/src/types/Misc.js';
+import { spawn, spawnSync } from 'child_process';
 
 const YT_BASE_DATA_API_ADDRESS = 'https://youtube.googleapis.com/youtube/v3';
 
@@ -16,11 +17,14 @@ class YouTubeService extends BaseService {
     private token: string;
     private logger: Logger.Logger;
     private youtubeAgent: Innertube;
+    private useExternalLoader: boolean;
+    private ytdlpCmd: string;
 
     constructor(accessToken: string) {
         super();
         this.token = accessToken;
         this.logger = Logger.getLogger('youtube');
+        this.useExternalLoader = config.get().YT_EXTERNAL_LOADER;
     }
 
     public async Init(): Promise<void> {
@@ -55,6 +59,22 @@ class YouTubeService extends BaseService {
             
             return new Function(code)();
         }
+
+        if (this.useExternalLoader) {
+            for (const command of ['yt-dlp', './yt-dlp', 'yt-dlp.exe', './yt-dlp.exe']) {
+                if (!spawnSync(command, ['-h']).error) {
+                    this.ytdlpCmd = command;
+                    this.logger.debug('Found yt-dlp as', command);
+                    break;
+                }
+            }
+            if (!this.ytdlpCmd) {
+                this.useExternalLoader = false;
+                this.logger.warn('yt-dlp binary not found, external loader disabled');
+            }
+        }
+
+        return Promise.resolve();
     }
 
     public Destroy(): void {
@@ -118,6 +138,40 @@ class YouTubeService extends BaseService {
     }
 
     public getAudioStream(id: string): Readable {
+        if (this.useExternalLoader) {
+            return this.getAudioStreamExternal(id);
+        }
+
+        return this.getAudioStreamInternal(id);
+    }
+
+    private getAudioStreamExternal(id: string): Readable {
+        const pt = new PassThrough({
+            highWaterMark: 10 * 1024 * 1024,
+        });
+
+        this.logger.debug(id, 'Started loading via yt-dlp');
+
+        const child = spawn('yt-dlp', [
+            '-x', '-o', '-',
+            `https://youtu.be/${id}`,
+        ]);
+
+        child.stderr.on('data', (data) => {
+            this.logger.trace(id, 'stderr:', data.toString());
+        });
+        child.stdout.on('error', (e) => this.logger.warn(id, 'out', e));
+
+        child.stdout.pipe(pt);
+
+        child.stdout.on('end', () => {
+            this.logger.debug(id, 'Finished loading via yt-dlp');
+        })
+
+        return pt;
+    }
+
+    private getAudioStreamInternal(id: string): Readable {
         // return ytdl(id, { filter: 'audioonly' });
         const pt = new PassThrough({
             highWaterMark: 10 * 1024 * 1024,
