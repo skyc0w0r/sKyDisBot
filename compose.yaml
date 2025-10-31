@@ -1,0 +1,12 @@
+services:
+  skydisbot:
+    build:
+      context: .
+    env_file: .env
+    environment:
+      NODE_ENV: production
+    volumes:
+      - db-data:/data
+
+volumes:
+  db-data:

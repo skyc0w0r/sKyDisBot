@@ -53,14 +53,14 @@ function checkConfig(): void {
             CurrentConfig = DefaultConfig;
 
             for (const key in DefaultConfig) {
+                if (env[key]) {
+                    CurrentConfig[key] = env[key]
+                }
                 if (typeof CurrentConfig[key] === 'string' && CurrentConfig[key] === PLACEHOLDER) {
-                    if (env[key]) {
-                        CurrentConfig[key] = env[key]
-                    } else {
-                        placeholders.push(key);
-                    }
+                    placeholders.push(key);
                 }
             }
+
             if (placeholders.length === 0) {
                 return;
             }

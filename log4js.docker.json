@@ -1,0 +1,19 @@
+{
+  "appenders": {
+    "con": {
+      "type": "stdout",
+      "layout": {
+        "type": "pattern",
+        "pattern": "%[[%r] [%-5p] [%c]:%] %m"
+      }
+    }
+  },
+  "categories": {
+    "default": {
+      "appenders": [
+        "con"
+      ],
+      "level": "DEBUG"
+    }
+  }
+}
