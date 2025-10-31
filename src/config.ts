@@ -1,7 +1,9 @@
 import { join, resolve } from 'path';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { env } from 'process';
 
 interface Config {
+    DB_URL: string
     DIS_TOKEN: string
     LOG_CONFIG: string
     YT_DATA_TOKEN: string
@@ -17,6 +19,7 @@ interface Config {
 
 const PLACEHOLDER = '[change_me]';
 const DefaultConfig: Config = {
+    DB_URL: 'sqlite://data/db.sqlite3',
     DIS_TOKEN: PLACEHOLDER,
     LOG_CONFIG: 'log4js.default.json',
     YT_DATA_TOKEN: PLACEHOLDER,
@@ -38,16 +41,37 @@ function checkConfig(): void {
     }
 
     try {
-        if (!existsSync(configPath)) {
+        const placeholders = new Array<string>();
+        let configExists = false;
+        try {
+            configExists = existsSync(configPath);
+        } catch (e) {
+
+        }
+
+        if (!configExists) {
             CurrentConfig = DefaultConfig;
+
+            for (const key in DefaultConfig) {
+                if (typeof CurrentConfig[key] === 'string' && CurrentConfig[key] === PLACEHOLDER) {
+                    if (env[key]) {
+                        CurrentConfig[key] = env[key]
+                    } else {
+                        placeholders.push(key);
+                    }
+                }
+            }
+            if (placeholders.length === 0) {
+                return;
+            }
+
             writeConfig();
-            throw new Error('Fresh config, please replace [change_me] values');
+            throw new Error(`Fresh config, please replace [change_me] values or set environment variables: ${placeholders.join(', ')}`);
         }
 
         const text = readFileSync(configPath, {'encoding': 'utf-8'});
         CurrentConfig = JSON.parse(text) as Config;
 
-        const placeholders = new Array<string>();
         for (const key in DefaultConfig) {
             if (!(key in CurrentConfig)) {
                 expandConfig();

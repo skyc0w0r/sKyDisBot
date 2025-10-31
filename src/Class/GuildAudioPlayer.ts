@@ -1,4 +1,4 @@
-import Discord from 'discord.js';
+import * as Discord from 'discord.js';
 import Logger from 'log4js';
 import human from '../human.js';
 import { AudioTrack } from '../Model/AudioManager/index.js';

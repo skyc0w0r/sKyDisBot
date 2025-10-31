@@ -1,4 +1,4 @@
-import Discord from 'discord.js';
+import { CommandInteraction, GuildMember, Message } from 'discord.js';
 import { CommandParamCollection } from '../Model/CommandParser/CommandOption.js';
 import { BaseCommand, RegisteredCommand } from '../Model/CommandParser/index.js';
 import CommandParserService from '../Service/CommandParserService.js';
@@ -29,14 +29,14 @@ export interface AliasCollection {
 
 export interface BaseCommandData {
     cmdParser: CommandParserService
-    user: Discord.GuildMember
+    user: GuildMember
     params: CommandParamCollection
 }
 
 export interface MessageCommandData extends BaseCommandData {
-    message: Discord.Message
+    message: Message
 }
 
 export interface InteractionCommandData extends BaseCommandData {
-    interaction: Discord.CommandInteraction
+    interaction: CommandInteraction
 }

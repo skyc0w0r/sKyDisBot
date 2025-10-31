@@ -1,4 +1,4 @@
-import Discord, { ActionRowBuilder, ApplicationCommandOptionType, ApplicationCommandType, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
+import * as Discord from 'discord.js';
 import Logger from 'log4js';
 import { UserActionEmitter } from '../Class/UserActionEmitter.js';
 import human from '../human.js';
@@ -88,7 +88,7 @@ class CommandParserService extends BaseService {
                     creator.options.getSubcommand(false)
                 ].filter(c => !!c);
                 await this.DispatchInner(tokens, creator);
-            } else if (creator.isSelectMenu()) {
+            } else if (creator.isStringSelectMenu()) {
                 await creator.deferReply();
                 await creator.reply({content: 'OwO whats this?'});
                 this.logger.info('+', human._s(creator));
@@ -214,7 +214,7 @@ class CommandParserService extends BaseService {
                             name: c.id,
                             description: c.description,
                             required: c.required,
-                            type: ApplicationCommandOptionType.String,
+                            type: Discord.ApplicationCommandOptionType.String,
                             choices: c.choices?.map(e => {
                                 return {
                                     name: e,
@@ -235,7 +235,7 @@ class CommandParserService extends BaseService {
                             name: c.id,
                             description: c.description,
                             required: c.required,
-                            type: ApplicationCommandOptionType.String,
+                            type: Discord.ApplicationCommandOptionType.String,
                             choices: c.choices?.map(e => {
                                 return {
                                     name: e,
@@ -249,21 +249,21 @@ class CommandParserService extends BaseService {
             return parserCommands;
         };
 
-        getParserCommands({type: ApplicationCommandType.ChatInput}, this).forEach(c => res.push(c));
+        getParserCommands({type: Discord.ApplicationCommandType.ChatInput}, this).forEach(c => res.push(c));
 
         for (const subCategory of Object.keys(this.categories).map(c => this.categories[c])) {
             const opts: Discord.ApplicationCommandOptionData[] = [];
-            opts.push(...(getParserCommands({type: ApplicationCommandType.ChatInput}, subCategory) as unknown as Discord.ApplicationCommandSubCommandData[]));
+            opts.push(...(getParserCommands({type: Discord.ApplicationCommandType.ChatInput}, subCategory) as unknown as Discord.ApplicationCommandSubCommandData[]));
             for (const subSubCategory of Object.keys(subCategory.categories).map(c => subCategory.categories[c])) {
                 opts.push({
-                    type: ApplicationCommandOptionType.SubcommandGroup,
+                    type: Discord.ApplicationCommandOptionType.SubcommandGroup,
                     name: subSubCategory.Name,
                     description: this.description,
                     options: getParserCommands({type: 1}, subSubCategory) as unknown as Discord.ApplicationCommandSubCommandData[]
                 });
             }
             res.push({
-                type: ApplicationCommandType.ChatInput,
+                type: Discord.ApplicationCommandType.ChatInput,
                 name: subCategory.Name,
                 description: this.description,
                 options: opts,
@@ -385,29 +385,29 @@ class CommandParserService extends BaseService {
 
         options = options.map((c, i) => `${i+1}. ${c}`);
         const optToButton = (i: number): Discord.ButtonBuilder => {
-            return new ButtonBuilder({
-                type: ComponentType.Button,
-                style: ButtonStyle.Primary,
+            return new Discord.ButtonBuilder({
+                type: Discord.ComponentType.Button,
+                style: Discord.ButtonStyle.Primary,
                 label: (i+1).toString(),
                 customId: (i+1).toString(),
             });
         };
-        const comps: ActionRowBuilder<ButtonBuilder>[] = [
-            new ActionRowBuilder<ButtonBuilder>()
+        const comps: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] = [
+            new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
                 .addComponents(
                     options.filter((_, i) => i < 5).map((_, i) => optToButton(i))
                 )
         ];
         if (options.length > 5) {
             comps.push(
-                new ActionRowBuilder<ButtonBuilder>()
+                new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
                     .addComponents(options.filter((_, i) => i >= 5).map((_, i) => optToButton(i+5)))
             );
         }
-        comps.push(new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(new ButtonBuilder({
-                type: ComponentType.Button,
-                style: ButtonStyle.Secondary,
+        comps.push(new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+            .addComponents(new Discord.ButtonBuilder({
+                type: Discord.ComponentType.Button,
+                style: Discord.ButtonStyle.Secondary,
                 label: 'Cancel',
                 customId: 'cancel',
             })

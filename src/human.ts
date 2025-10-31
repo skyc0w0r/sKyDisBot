@@ -1,4 +1,4 @@
-import Discord from 'discord.js';
+import * as Discord from 'discord.js';
 import { GuildAudioPlayer } from './Class/GuildAudioPlayer.js';
 import CommandParserService from './Service/CommandParserService.js';
 

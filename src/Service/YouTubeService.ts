@@ -8,7 +8,7 @@ import Video from '../Model/YouTube/Video.js';
 import VideosResponse from '../Model/YouTube/VideosResponse.js';
 import config from '../config.js';
 import Innertube, { Platform, Types } from 'youtubei.js';
-import { InnerTubeConfig } from 'youtubei.js/dist/src/types/Misc.js';
+// import { InnerTubeConfig } from 'youtubei.js/dist/src/types/Misc.js';
 import { spawn, spawnSync } from 'child_process';
 
 const YT_BASE_DATA_API_ADDRESS = 'https://youtube.googleapis.com/youtube/v3';
@@ -28,7 +28,8 @@ class YouTubeService extends BaseService {
     }
 
     public async Init(): Promise<void> {
-        const opts: InnerTubeConfig = {};
+        // const opts: InnerTubeConfig = {};
+        const opts: any = {};
 
         const playerId = config.get().YT_PLAYER_ID;
         if (playerId) {

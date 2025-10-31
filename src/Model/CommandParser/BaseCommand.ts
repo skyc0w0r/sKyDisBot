@@ -1,4 +1,4 @@
-import Discord from 'discord.js';
+import { BaseMessageOptions, Guild, GuildMember, Message, MessagePayload, TextChannel } from 'discord.js';
 import { BaseCommandData } from '../../Interface/CommandParserInterface.js';
 import { UserPromtResult } from '../../Interface/UserPromtResult.js';
 import CommandParserService from '../../Service/CommandParserService.js';
@@ -7,7 +7,7 @@ import { InteractionCommand, MessageCommand } from './index.js';
 import { ActualTextChannel } from '../../Interface/Util.js';
 
 export class BaseCommand {
-    public get User(): Discord.GuildMember {
+    public get User(): GuildMember {
         return this.user;
     }
     public get Channel(): ActualTextChannel {
@@ -22,7 +22,7 @@ export class BaseCommand {
     public get Params(): CommandParamCollection {
         return this.params;
     }
-    public get Guild(): Discord.Guild {
+    public get Guild(): Guild {
         if (this.isByInteraction()) {
             return this.Interaction.guild;
         }
@@ -33,7 +33,7 @@ export class BaseCommand {
     }
 
     private cmdParser: CommandParserService;
-    private user: Discord.GuildMember;
+    private user: GuildMember;
     private params: CommandParamCollection;
 
     constructor(data: BaseCommandData) {
@@ -51,18 +51,18 @@ export class BaseCommand {
 
     public async CreateSelectPromt(
         options: string[],
-        filter: (user: Discord.GuildMember, channel: Discord.TextChannel) => boolean,
+        filter: (user: GuildMember, channel: TextChannel) => boolean,
         timeout = 60e3,
     ): Promise<UserPromtResult> {
         return await this.cmdParser.CreateSelectPromt(this, options, filter, timeout);
     }
 
-    public async reply(content: Discord.MessagePayload | Discord.BaseMessageOptions): Promise<Discord.Message> {
+    public async reply(content: MessagePayload | BaseMessageOptions): Promise<Message> {
         if (this.isByMessage()) {
             return await this.Channel.send(content);
         } else if (this.isByInteraction()) {
             if (new Date().getTime() - this.Interaction.createdAt.getTime() < 15 * 60 * 1000) {
-                return await this.Interaction.followUp(content) as Discord.Message;
+                return await this.Interaction.followUp(content) as Message;
             } else {
                 return await this.Interaction.channel.send(content);
             }
