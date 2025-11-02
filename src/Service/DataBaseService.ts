@@ -3,6 +3,7 @@ import { BaseService } from "../Interface/ServiceManagerInterface.js";
 import { sequelize } from "../DataBase/index.js";
 import GifContext from '../DataBase/Context/GifContext.js';
 import AudioStatsContext from '../DataBase/Context/AudioStatsContext.js';
+import PreferenceContext from '../DataBase/Context/PreferenceContext.js';
 
 const logger = Logger.getLogger('db');
 
@@ -17,6 +18,11 @@ class DataBaseService extends BaseService {
     }
     private audioStats: AudioStatsContext;
 
+    public get ServerPreference() {
+        return this.serverPreference;
+    }
+    private serverPreference: PreferenceContext;
+
     public async Init(): Promise<void> {
         await sequelize.authenticate();
         await sequelize.sync();
@@ -24,6 +30,7 @@ class DataBaseService extends BaseService {
 
         this.gif = new GifContext();
         this.audioStats = new AudioStatsContext();
+        this.serverPreference = new PreferenceContext();
     }
 
     public async Destroy(): Promise<void> {

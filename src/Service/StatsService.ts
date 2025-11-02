@@ -22,7 +22,9 @@ class StatsService extends BaseService {
 
         cp = cp.RegisterCategory('stats', undefined, 'Bot statistics');
 
-        cp.RegisterCommand('audio', this.DisplayGlobalAudioStats.bind(this));
+        cp.RegisterCommand('audio', this.DisplayGlobalAudioStats.bind(this), {
+            description: 'Display audio play statistics'
+        });
     }
     async Destroy(): Promise<void> {
     }

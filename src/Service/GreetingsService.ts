@@ -1,4 +1,4 @@
-import { ChannelType, PermissionsBitField, VoiceState } from 'discord.js';
+import { ChannelType, PermissionsBitField, TextChannel, VoiceState } from 'discord.js';
 import Logger from 'log4js';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import { BaseCommand } from '../Model/CommandParser/index.js';
@@ -7,6 +7,7 @@ import { GlobalServiceManager } from './ServiceManager.js';
 import DataBaseService from './DataBaseService.js';
 import human from '../human.js';
 import DiscordEventerService from './DiscordEventerService.js';
+import { GIF_CHANNEL, GIF_ENABLE } from '../Helpers/ServerPreferenceNames.js';
 
 const logger = Logger.getLogger('greeter');
 const GREETING_TIMEOUT = 5 * 60 * 1000;
@@ -71,15 +72,28 @@ class GreetingsService extends BaseService {
         if (!(!oldState?.channel && !!newState?.channel)) return;
 
         try {
+            const enabled = await this.db.ServerPreference.Get(newState.guild.id, GIF_ENABLE);
+            if (!Boolean(enabled)) return;
+
             const user = await this.db.Gif.GetOne(newState.member.user.id, newState.guild.id);
 
             if (!user) return;
 
             if (!!user.lastSent && new Date().valueOf() - user.lastSent.valueOf() < GREETING_TIMEOUT) return;
 
-            const textChannel = newState.channel.guild.channels.cache
-                .filter((c) => c.type === ChannelType.GuildText)
-                .first();
+            const channelId = await this.db.ServerPreference.Get(newState.guild.id, GIF_CHANNEL);
+            let textChannel: TextChannel;
+            if (channelId) {
+                const fetchedChannel = await newState.channel.guild.channels.fetch(channelId);
+                if (fetchedChannel && fetchedChannel.type === ChannelType.GuildText) {
+                    textChannel = fetchedChannel;
+                }
+            }
+            if (!textChannel) {
+                textChannel = newState.channel.guild.channels.cache
+                    .filter((c) => c.type === ChannelType.GuildText)
+                    .first();
+            }
 
             textChannel.send({
                 embeds: [
