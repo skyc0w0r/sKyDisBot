@@ -40,3 +40,4 @@ log4js.config.json
 crash*.txt
 *.sqlite
 data/
+compose-dev.yaml

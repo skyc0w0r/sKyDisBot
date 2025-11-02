@@ -4,24 +4,37 @@ import AudioConverter from '../../Service/AudioConverter.js';
 import WebLoader from '../../Service/WebLoader.js';
 import { BaseCommand } from '../CommandParser/index.js';
 import { AudioTrack } from './index.js';
+import { TrackServiceMeta } from './TrackServiceMeta.js';
+import { TRACK_TYPE_ENUM } from '../../Enums/TrackType.js';
+import { AudioMetaInfo } from '../AudioConverter/AudioMetaInfo.js';
 
 export class WebTrack extends AudioTrack {
     public Url: URL;
     public override get Title(): string {
-        return this.title;
+        return [this.meta.Artist, this.meta.Title].filter(Boolean).join(' - ');
     }
-    private title: string;
     public override get Duration(): number {
-      return this.duration;
+      return this.meta.Duration;
     }
-    private duration: number;
+    public override get ServiceMeta(): TrackServiceMeta {
+        return {
+            name: TRACK_TYPE_ENUM.direct,
+            id: this.Url.toString(),
+        };
+    }
+    private meta: AudioMetaInfo;
+    private metadataRecievedCallback?: (track: WebTrack, meta: AudioMetaInfo) => void;
 
-    constructor(origin: BaseCommand, url: URL, web: WebLoader, converter: AudioConverter) {
+    constructor(origin: BaseCommand, url: URL, web: WebLoader, converter: AudioConverter, metadataRecievedCallback: (track: WebTrack, meta: AudioMetaInfo) => void = undefined) {
         super(origin, converter, () => web.getReadableFromUrl(url));
 
         this.Url = url;
-        this.title = path.basename(decodeURI(this.Url.pathname));
-        this.duration = 0;
+        this.meta = {
+            Title: path.basename(decodeURI(this.Url.pathname)),
+            Artist: '',
+            Duration: 0,
+        };
+        this.metadataRecievedCallback = metadataRecievedCallback;
     }
 
     override CreateReadable(): Readable {
@@ -42,13 +55,9 @@ export class WebTrack extends AudioTrack {
         s.on('error', e => pt2.emit('error', e));
 
         this.audioConverter.getMetadata(pt1).then(meta => {
-            if (meta.Title) {
-                if (meta.Artist) {
-                    this.title = `${meta.Artist} - ${meta.Title}`;
-                }
-                this.title = meta.Title;
-            }
-            this.duration = meta.Duration;
+            this.meta = meta;
+            if (this.metadataRecievedCallback)
+                this.metadataRecievedCallback(this, meta);
         });
 
         this.info = this.audioConverter.convertForDis(pt2);

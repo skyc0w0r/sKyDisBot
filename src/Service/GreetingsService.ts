@@ -71,7 +71,7 @@ class GreetingsService extends BaseService {
         if (!(!oldState?.channel && !!newState?.channel)) return;
 
         try {
-            const user = await this.db.GifGetOne(newState.member.user.id, newState.guild.id);
+            const user = await this.db.Gif.GetOne(newState.member.user.id, newState.guild.id);
 
             if (!user) return;
 
@@ -114,7 +114,7 @@ class GreetingsService extends BaseService {
             return;
         }
 
-        const status = await this.db.GifSet(userId, cmd.Guild.id, cmd.Params['gif'].value);
+        const status = await this.db.Gif.Set(userId, cmd.Guild.id, cmd.Params['gif'].value);
 
         await cmd.reply({ content: status });
 
@@ -135,7 +135,7 @@ class GreetingsService extends BaseService {
             return;
         }
 
-        const status = await this.db.GifUpdate(userId, cmd.Guild.id, cmd.Params['gif'].value);
+        const status = await this.db.Gif.Update(userId, cmd.Guild.id, cmd.Params['gif'].value);
 
         await cmd.reply({ content: status });
 
@@ -156,7 +156,7 @@ class GreetingsService extends BaseService {
             return;
         }
 
-        const status = await this.db.GifRemove(userId, cmd.Guild.id);
+        const status = await this.db.Gif.Remove(userId, cmd.Guild.id);
 
         await cmd.reply({ content: status });
         
@@ -169,7 +169,7 @@ class GreetingsService extends BaseService {
             return;
         }
 
-        const userList = await this.db.GifGet(cmd.Guild.id);
+        const userList = await this.db.Gif.Get(cmd.Guild.id);
 
         await cmd.reply({
             embeds: [

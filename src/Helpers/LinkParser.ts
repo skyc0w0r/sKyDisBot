@@ -44,22 +44,22 @@ export function parseYMLink(text: string): YMLinkType {
             };
         }
         if (tokens.at(-2) === 'track') {
-            const trackId = tokens.at(-1);
+            const trackId = tokens.at(-1)!;
             return {
                 type: 'track',
                 track: trackId,
             };
         }
         if (tokens.at(-2) === 'album') {
-            const albumId = tokens.at(-1);
+            const albumId = tokens.at(-1)!;
             return {
                 type: 'album',
                 album: albumId,
             };
         }
         if (tokens.at(-2) === 'playlists' && tokens.length > 2) {
-            const userId = tokens.at(-3);
-            const playlistId = tokens.at(-1);
+            const userId = tokens.at(-3)!;
+            const playlistId = tokens.at(-1)!;
             return {
                 type: 'playlist',
                 user: userId,

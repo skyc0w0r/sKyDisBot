@@ -38,3 +38,4 @@ crash*.txt
 *.sqlite
 data/
 .env
+compose-dev.yaml

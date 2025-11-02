@@ -8,6 +8,8 @@ interface UserActionEmitterEvents {
 
 export class UserActionEmitter extends EventEmitter<UserActionEmitterEvents> {
     emitOnMessage(msg: Message): void {
+        if (!msg.member) return
+
         if (msg.content.toLowerCase() === 'cancel') {
             this.emit('action', msg.member, msg.channel as TextChannel, 'cancel', msg);
             return;

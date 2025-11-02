@@ -17,6 +17,7 @@ import YandexService from './Service/YandexService.js';
 import YouTubeService from './Service/YouTubeService.js';
 import DiscordEventerService from './Service/DiscordEventerService.js';
 import DataBaseService from './Service/DataBaseService.js';
+import StatsService from './Service/StatsService.js';
 
 async function main() {
     config.check();
@@ -48,7 +49,8 @@ async function main() {
         .AddService(UtilService, new UtilService())
         .AddService(YandexService, new YandexService(config.get().YANDEX_MUSIC_TOKEN))
         .AddService(GreetingsService, new GreetingsService())
-        .AddService(DiscordEventerService, new DiscordEventerService(client));
+        .AddService(DiscordEventerService, new DiscordEventerService(client))
+        .AddService(StatsService, new StatsService());
 
     GlobalServiceManager().Init();
 

@@ -23,7 +23,7 @@
         "file",
         "con"
       ],
-      "level": "TRACE"
+      "level": "DEBUG"
     }
   }
 }

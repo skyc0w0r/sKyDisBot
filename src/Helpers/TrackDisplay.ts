@@ -8,7 +8,7 @@ export async function DisplaySingleTrack(cmd: BaseCommand, track: AudioTrack): P
     if (track instanceof YouTubeTrack) {
         await cmd.reply({ content: `Added **${track.Video.Snippet.Title}** to the queue!` });
     } else if (track instanceof YandexTrack) {
-        await cmd.reply({ content: `Added **${track.Track.Title}** to the queue!` });
+        await cmd.reply({ content: `Added **${track.Track.FullTitle}** to the queue!` });
     } else {
         await cmd.reply({ content: `Added **${track.Title}** to the queue!` });
     }

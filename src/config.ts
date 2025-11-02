@@ -92,7 +92,7 @@ function checkConfig(): void {
 
 function getConfig(): Config {
     checkConfig();
-    return CurrentConfig;
+    return CurrentConfig!;
 }
 
 function writeConfig(): void {
@@ -100,6 +100,7 @@ function writeConfig(): void {
 }
 
 function expandConfig(): void {
+    if (!CurrentConfig) return;
     // copy missing values from Default to Current
     for (const key in DefaultConfig) {
         if (!Object.keys(CurrentConfig).some(c => c === key)) {

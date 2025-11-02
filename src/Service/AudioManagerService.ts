@@ -12,27 +12,27 @@ import { CommandCallback } from '../Interface/CommandParserInterface.js';
 import human from '../human.js';
 import { YouTubeTrack, WebTrack, AudioTrack, YandexTrack } from '../Model/AudioManager/index.js';
 import WebLoader from './WebLoader.js';
-import { LastTrackCollection } from '../Model/AudioManager/LastTrackCollection.js';
 import { LoopMode } from '../Interface/LoopMode.js';
 import YandexService from './YandexService.js';
 import { ActualTextChannel } from '../Interface/Util.js';
 import { DisplayCurrentTrack, DisplaySingleTrack, DisplayTrackQueue } from '../Helpers/TrackDisplay.js';
 import { parseYMLink, parseYTLink, YMLinkType, YTLinkType } from '../Helpers/LinkParser.js';
+import DataBaseService from './DataBaseService.js';
+import { AudioMetaInfo } from '../Model/AudioConverter/AudioMetaInfo.js';
 
 class AudioManagerService extends BaseService {
     private audioConverter: AudioConverter;
     private youtube: YouTubeService;
     private ym: YandexService;
     private webLoader: WebLoader;
+    private db: DataBaseService;
     private logger: Logger.Logger;
     private players: GuildAudioPlayerCollection;
-    private lastTracks: LastTrackCollection;
 
     constructor() {
         super();
         this.logger = Logger.getLogger('audio_manager');
         this.players = {};
-        this.lastTracks = {};
     }
 
     public Init(): void {
@@ -41,6 +41,7 @@ class AudioManagerService extends BaseService {
         this.youtube = GlobalServiceManager().GetRequiredService(YouTubeService);
         this.ym = GlobalServiceManager().GetRequiredService(YandexService);
         this.webLoader = GlobalServiceManager().GetRequiredService(WebLoader);
+        this.db = GlobalServiceManager().GetRequiredService(DataBaseService);
 
         cp = cp.RegisterCategory('audio', (c, i) => this.wrapper(c, i), 'Audio player commands');
         cp.RegisterCommand('play', (c) => this.playAnyHandler(c), {
@@ -239,16 +240,17 @@ class AudioManagerService extends BaseService {
             }
             const track = new YandexTrack(cmd, searchres[0], this.ym, this.audioConverter);
             p.enqueue(track, isTop);
-            this.setLastTrack(cmd.User, track);
 
             this.logger.info(human._s(cmd.Guild), `Added yandex.music track (id: ${searchres[0].Id}) to queue`);
             await DisplaySingleTrack(cmd, track);
         } else if (link.type === 'track') {
             const info = await this.ym.GetTrackInfo(link.track);
+            if (!info) {
+                throw new Error(`Failed to get yandex#${link.track}`);
+            }
             const track = new YandexTrack(cmd, info, this.ym, this.audioConverter);
 
             p.enqueue(track, isTop);
-            this.setLastTrack(cmd.User, track);
 
             this.logger.info(human._s(cmd.Guild), `Added yandex.music track (id: ${info.Id}) to queue`);
             await DisplaySingleTrack(cmd, track);
@@ -290,9 +292,8 @@ class AudioManagerService extends BaseService {
     private async playDirectLink(cmd: BaseCommand, url: URL, isTop = false): Promise<void> {
         const p = this.getGuildPlayer(cmd.Guild);
 
-        const track = new WebTrack(cmd, url, this.webLoader, this.audioConverter);
+        const track = new WebTrack(cmd, url, this.webLoader, this.audioConverter, this.updateWebTrackMeta.bind(this));
         p.enqueue(track, isTop);
-        this.setLastTrack(cmd.User, track);
 
         this.logger.info(human._s(cmd.Guild), `Added direct link track ${track.Url.toString()} to queue`);
         await DisplaySingleTrack(cmd, track);
@@ -311,7 +312,6 @@ class AudioManagerService extends BaseService {
 
         if (link.type === 'invalid') {
             // search and play first
-            // await cmd.reply({content: 'Invalid link'});
             const searchres = await this.youtube.search(link.query);
             if (searchres.length === 0) {
                 await cmd.reply({ content: 'No results' });
@@ -319,7 +319,6 @@ class AudioManagerService extends BaseService {
             }
             const track = new YouTubeTrack(cmd, searchres[0], this.youtube, this.audioConverter);
             p.enqueue(track, isTop);
-            this.setLastTrack(cmd.User, track);
 
             this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${searchres[0].Id}) to queue`);
             await DisplaySingleTrack(cmd, track);
@@ -336,9 +335,12 @@ class AudioManagerService extends BaseService {
         } else if (link.type === 'video') {
             // enqueue song by id
             const vid = await this.youtube.getVideoInfo(link.vid);
+            if (!vid) {
+                throw new Error(`Failed to get youtube#${link.vid}`);
+            }
+
             const track = new YouTubeTrack(cmd, vid, this.youtube, this.audioConverter);
             p.enqueue(track, isTop);
-            this.setLastTrack(cmd.User, track);
 
             this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${vid.Id}) to queue`);
             await DisplaySingleTrack(cmd, track);
@@ -350,7 +352,7 @@ class AudioManagerService extends BaseService {
         await this.ensureVoice(cmd);
         const p = this.getGuildPlayer(cmd.Guild);
 
-        const track = this.getLastTrack(cmd.User);
+        const track = await this.getLastTrack(cmd);
         if (!track) {
             await cmd.reply({ content: 'You havent played anything yet 💫' });
             return;
@@ -391,7 +393,6 @@ class AudioManagerService extends BaseService {
         const vid = searchResults[selected - 1];
         const track = new YouTubeTrack(cmd, vid, this.youtube, this.audioConverter);
         p.enqueue(track, isTop);
-        this.setLastTrack(cmd.User, track);
 
         this.logger.info(human._s(cmd.Guild), `Added youtube track (id: ${vid.Id}) to queue`);
         await DisplaySingleTrack(cmd, track);
@@ -412,7 +413,7 @@ class AudioManagerService extends BaseService {
         const selected = await cmd.CreateSelectPromt(
             searchResults
                 .filter((_, i) => i < 10)
-                .map(c => `${c.Artists[0].Name} - ${c.Title} ${human.timeSpan(c.Duration)}`),
+                .map(c => `${c.FullTitle} ${human.timeSpan(c.Duration)}`),
             (u, c) => u.id === cmd.User.id && c.id === cmd.Channel.id
         );
 
@@ -423,7 +424,6 @@ class AudioManagerService extends BaseService {
         const info = searchResults[selected - 1];
         const track = new YandexTrack(cmd, info, this.ym, this.audioConverter);
         p.enqueue(track);
-        this.setLastTrack(cmd.User, track);
 
         this.logger.info(human._s(cmd.Guild), `Added yandex.music track (id: ${info.Id}) to queue`);
         await DisplaySingleTrack(cmd, track);
@@ -516,18 +516,36 @@ class AudioManagerService extends BaseService {
     private getGuildPlayer(guild: Discord.Guild): GuildAudioPlayer {
         if (!this.players[guild.id]) {
             const p = new GuildAudioPlayer(guild);
-            p.on('trackError', (t, e) => this.notifyError(t, e));
+            p.on('trackError', this.notifyError.bind(this));
+            p.on('trackStart', this.recordPlayStats.bind(this));
             this.players[guild.id] = p;
         }
         return this.players[guild.id];
     }
 
-    private getLastTrack(user: Discord.GuildMember): AudioTrack | undefined {
-        return this.lastTracks[user.user.id];
-    }
+    private async getLastTrack(cmd: BaseCommand): Promise<AudioTrack | undefined> {
+        const media = await this.db.AudioStats.GetLastUserPlay(cmd.User.id);
+        if (!media) return undefined;
 
-    private setLastTrack(user: Discord.GuildMember, track: AudioTrack): void {
-        this.lastTracks[user.user.id] = track;
+        switch (media.serviceType) {
+            case 'youtube':
+                const infoYt = await this.youtube.getVideoInfo(media.serviceId);
+                if (!infoYt) {
+                    throw new Error(`Failed to get youtube#${media.serviceId}`);
+                }
+                return new YouTubeTrack(cmd, infoYt, this.youtube, this.audioConverter);
+            case 'yandex':
+                const infoYm = await this.ym.GetTrackInfo(media.serviceId);
+                if (!infoYm) {
+                    throw new Error(`Failed to get yandex#${media.serviceId}`);
+                }
+                return new YandexTrack(cmd, infoYm, this.ym, this.audioConverter);
+            case 'direct':
+                const url = new URL(media.serviceId);
+                return new WebTrack(cmd, url, this.webLoader, this.audioConverter);
+            default:
+                throw new Error(`Unknown track type(${media.serviceType}) from db!`);
+        }
     }
 
     private async ensureVoice(cmd: BaseCommand): Promise<void> {
@@ -545,6 +563,14 @@ class AudioManagerService extends BaseService {
 
     private async notifyError(track: AudioTrack, error: Error) {
         await track.Origin.reply({ content: `Failed to play **${track.Title}**: ${error.message}` });
+    }
+
+    private async recordPlayStats(track: AudioTrack) {
+        await this.db.AudioStats.SaveUserPlay(track, track.Origin.User.id, track.Origin.Guild.id);
+    }
+
+    private async updateWebTrackMeta(track: WebTrack, meta: AudioMetaInfo) {
+        await this.db.AudioStats.SetWebTrackMeta(track, meta);
     }
 }
 

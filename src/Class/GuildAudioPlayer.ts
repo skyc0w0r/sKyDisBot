@@ -8,16 +8,17 @@ import { AudioPlayer, AudioPlayerState, AudioPlayerStatus, createAudioResource, 
 
 interface GuildAudioPlayerEvents {
     trackError: [AudioTrack, Error]
+    trackStart: [AudioTrack]
 }
 
 export class GuildAudioPlayer extends EventEmitter<GuildAudioPlayerEvents> {
     public get Guild(): Discord.Guild {
         return this.guild;
     }
-    public get Channel(): Discord.VoiceChannel {
+    public get Channel(): Discord.VoiceChannel | undefined {
         return this.channel;
     }
-    public get Current(): AudioTrack {
+    public get Current(): AudioTrack | undefined {
         return this.current;
     }
     public get Queue(): AudioTrack[] {
@@ -36,11 +37,11 @@ export class GuildAudioPlayer extends EventEmitter<GuildAudioPlayerEvents> {
     private guild: Discord.Guild;
     private channel?: Discord.VoiceChannel;
 
-    private voice: VoiceConnection;
+    private voice: VoiceConnection | undefined;
     private player: AudioPlayer;
     private connectLock: boolean;
 
-    private current: AudioTrack;
+    private current: AudioTrack | undefined;
     private queue: Array<AudioTrack>;
     private queueLock: boolean;
     private loopMode: LoopMode;
@@ -174,6 +175,10 @@ export class GuildAudioPlayer extends EventEmitter<GuildAudioPlayerEvents> {
 
     private async onVoiceStateChanged(oldS: VoiceConnectionState, newS: VoiceConnectionState): Promise<void> {
         // this.logger.debug(human._s(this.guild), 'voice state from', oldS.status, 'to', newS.status);
+        if (!this.voice) {
+            this.logger.warn(human._s(this.guild), 'voice state changed on no voice!');
+            return;
+        }
 
         if (newS.status === VoiceConnectionStatus.Disconnected) {
             this.logger.debug(human._s(this), 'Voice disconnected');
@@ -269,13 +274,14 @@ export class GuildAudioPlayer extends EventEmitter<GuildAudioPlayerEvents> {
             return;
         }
 
-        const t = this.queue.shift();
+        const t = this.queue.shift()!;
         try {
             const audioRes = createAudioResource<AudioTrack>(t.CreateReadable(), {inputType: StreamType.OggOpus, metadata: t});
             this.isPlayerSignalled = true;
             this.player.play(audioRes);
             this.current = t;
             this.queueLock = false;
+            this.emit('trackStart', t);
         } catch (e) {
             this.logger.warn(human._s(this.guild), 'failed to play', e);
             this.queueLock = false;

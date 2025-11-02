@@ -7,6 +7,10 @@ class Track {
     public Artists: Array<Artist>;
     public CoverUri: string;
 
+    public get FullTitle(): string {
+        return `${this.Artists.map(c => c.Name).join(', ')} - ${this.Title}`;
+    }
+
     constructor(obj?: unknown) {
         this.Id = obj && obj['id'] || '';
         this.Title = obj && obj['title'] || '';
