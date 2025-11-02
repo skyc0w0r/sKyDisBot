@@ -24,7 +24,7 @@ class GreetingsService extends BaseService {
             description: 'Subscribing to a channel join event so that the bot sends a GIF',
             options: [
                 {
-                    id: 'discordId',
+                    id: 'user_id',
                     description: 'Nickname user',
                     required: true,
                 },
@@ -40,7 +40,7 @@ class GreetingsService extends BaseService {
             description: 'Change gif for user',
             options: [
                 {
-                    id: 'discordId',
+                    id: 'user_id',
                     description: 'Nickname user',
                     required: true,
                 },
@@ -56,7 +56,7 @@ class GreetingsService extends BaseService {
             description: 'Remove gif for user',
             options: [
                 {
-                    id: 'discordId',
+                    id: 'user_id',
                     description: 'Nickname user',
                     required: true,
                 },
@@ -107,7 +107,7 @@ class GreetingsService extends BaseService {
             return;
         }
 
-        const userId = this.extractUserId(cmd.Params['discordId'].value);
+        const userId = this.extractUserId(cmd.Params['user_id'].value);
 
         if (!userId) {
             await cmd.reply({ content: 'Invalid discord id' });
@@ -128,7 +128,7 @@ class GreetingsService extends BaseService {
             return;
         }
 
-        const userId = this.extractUserId(cmd.Params['discordId'].value);
+        const userId = this.extractUserId(cmd.Params['user_id'].value);
 
         if (!userId) {
             await cmd.reply({ content: 'Invalid discord id' });
@@ -149,7 +149,7 @@ class GreetingsService extends BaseService {
             return;
         }
 
-        const userId = this.extractUserId(cmd.Params['discordId'].value);
+        const userId = this.extractUserId(cmd.Params['user_id'].value);
 
         if (!userId) {
             await cmd.reply({ content: 'Invalid discord id' });

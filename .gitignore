@@ -37,5 +37,5 @@ log4js.config.json
 crash*.txt
 *.sqlite
 data/
-.env
+.env*
 compose-dev.yaml
