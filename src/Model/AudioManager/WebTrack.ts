@@ -19,7 +19,7 @@ export class WebTrack extends AudioTrack {
     public override get ServiceMeta(): TrackServiceMeta {
         return {
             name: TRACK_TYPE_ENUM.direct,
-            id: this.Url.toString(),
+            id: decodeURI(this.Url.toString()),
         };
     }
     private meta: AudioMetaInfo;
