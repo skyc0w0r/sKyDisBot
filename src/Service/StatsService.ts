@@ -7,6 +7,8 @@ import DataBaseService from "./DataBaseService.js";
 import { EmbedBuilder } from "discord.js";
 import { TRACK_TYPE_ENUM } from "../Enums/TrackType.js";
 
+const topPlaces = ['🥇', '🥈', '🥉'];
+
 class StatsService extends BaseService {
     private logger: Logger.Logger;
     private db: DataBaseService;
@@ -47,14 +49,17 @@ class StatsService extends BaseService {
             let linkBase = '';
             if (track.serviceName === TRACK_TYPE_ENUM.youtube) {
                 linkBase = 'https://youtu.be/';
+                linkBase += track.serviceId;
             } else if (track.serviceName === TRACK_TYPE_ENUM.yandex) {
                 linkBase = 'https://music.yandex.ru/track/'
+                linkBase += track.serviceId;
+            } else if (track.serviceName === TRACK_TYPE_ENUM.direct) {
+                linkBase += encodeURI(track.serviceId);
             }
-            linkBase += track.serviceId;
 
             eb.addFields({
-                name: `#${i + 1} - ${track.count} plays`,
-                value: `[🌍](${linkBase}) ${track.title}`
+                name: `${topPlaces[i] ?? ''} #${i + 1} - ${track.count} plays`,
+                value: `[🌍](${linkBase}) ${track.title}`,
             });
         }
         cmd.reply({ embeds: [eb] })
