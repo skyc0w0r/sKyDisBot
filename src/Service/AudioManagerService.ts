@@ -17,6 +17,7 @@ import YandexService from './YandexService.js';
 import { ActualTextChannel } from '../Interface/Util.js';
 import { DisplayCurrentTrack, DisplaySingleTrack, DisplayTrackQueue } from '../Helpers/TrackDisplay.js';
 import { parseYMLink, parseYTLink, YMLinkType, YTLinkType } from '../Helpers/LinkParser.js';
+import { parseM3U } from '../Helpers/M3UParser.js';
 import DataBaseService from './DataBaseService.js';
 import { AudioMetaInfo } from '../Model/AudioConverter/AudioMetaInfo.js';
 
@@ -213,6 +214,10 @@ class AudioManagerService extends BaseService {
         let url: URL;
         try {
             url = new URL(query);
+            if (/\.m3u8?$/i.test(url.pathname)) {
+                await this.playM3UPlaylist(cmd, url, isTop);
+                return;
+            }
             await this.playDirectLink(cmd, url, isTop);
             return;
         } catch (e) {
@@ -297,6 +302,34 @@ class AudioManagerService extends BaseService {
 
         this.logger.info(human._s(cmd.Guild), `Added direct link track ${track.Url.toString()} to queue`);
         await DisplaySingleTrack(cmd, track);
+    }
+
+    private async playM3UPlaylist(cmd: BaseCommand, url: URL, isTop = false): Promise<void> {
+        const p = this.getGuildPlayer(cmd.Guild);
+
+        const res = await fetch(url);
+        if (!res.ok) {
+            await cmd.reply({ content: 'Failed to fetch playlist 😠' });
+            return;
+        }
+
+        const entries = parseM3U(await res.text(), url);
+        if (entries.length === 0) {
+            await cmd.reply({ content: 'Playlist is empty or invalid 😠' });
+            return;
+        }
+
+        const tracks = entries.map(e => new WebTrack(cmd, e.url, this.webLoader, this.audioConverter, undefined, {
+            Title: e.title ?? '',
+            Artist: '',
+            Duration: e.duration ?? 0,
+        }));
+        for (const track of tracks) {
+            p.enqueue(track, isTop);
+        }
+
+        this.logger.info(human._s(cmd.Guild), `Added m3u playlist (${tracks.length} items) to queue`);
+        await cmd.reply({ content: `Enqueued 👍\nSongs: ${tracks.length}; total time: ${human.timeSpan(tracks.reduce((sum, t) => sum + t.Duration, 0))}` });
     }
 
     // audio yt
