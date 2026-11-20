@@ -25,23 +25,28 @@ export class WebTrack extends AudioTrack {
     private meta: AudioMetaInfo;
     private fileName: string;
     private metadataRecievedCallback?: (track: WebTrack, meta: AudioMetaInfo) => void;
+    private skipProbe: boolean;
 
-    constructor(origin: BaseCommand, url: URL, web: WebLoader, converter: AudioConverter, metadataRecievedCallback: (track: WebTrack, meta: AudioMetaInfo) => void = undefined) {
+    constructor(origin: BaseCommand, url: URL, web: WebLoader, converter: AudioConverter, metadataRecievedCallback: (track: WebTrack, meta: AudioMetaInfo) => void = undefined, knownMeta?: AudioMetaInfo) {
         super(origin, converter, () => web.getReadableFromUrl(url));
 
         this.Url = url;
         const cleanUrl = decodeURI(this.Url.pathname);
         this.fileName = path.basename(cleanUrl, path.extname(cleanUrl));
-        this.meta = {
+        this.meta = knownMeta ?? {
             Title: this.fileName,
             Artist: '',
             Duration: 0,
         };
+        this.skipProbe = !!knownMeta;
         this.metadataRecievedCallback = metadataRecievedCallback;
     }
 
     override CreateReadable(): Readable {
-        // return super.getSourceStream();
+        if (this.skipProbe) {
+            return super.CreateReadable();
+        }
+
         const s = this.getSourceStream();
         const pt1 = new PassThrough({
             highWaterMark: 2 * 1024 * 1024,
