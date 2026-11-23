@@ -11,6 +11,10 @@ import { ActualTextChannel } from '../Interface/Util.js';
 import { GlobalServiceManager } from './ServiceManager.js';
 import DataBaseService from './DataBaseService.js';
 
+// Lazily resolved once and reused, DataBaseService is a singleton so there is
+// no point paying for a GetRequiredService lookup on every command.
+let cachedDb: DataBaseService | undefined;
+
 /**
  * Use to parse text chat command
  * How to use:
@@ -496,8 +500,8 @@ class CommandParserService extends BaseService {
         }
 
         if (creator.Guild) {
-            const db = GlobalServiceManager().GetRequiredService(DataBaseService);
-            const banned = await db.Blacklist.IsBanned(creator.User.id, creator.Guild.id);
+            cachedDb ??= GlobalServiceManager().GetRequiredService(DataBaseService);
+            const banned = await cachedDb.Blacklist.IsBanned(creator.User.id, creator.Guild.id);
             if (banned) {
                 await creator.reply({ content: `You are banned from using this bot on this server. Reason: ${banned.reason}` });
                 return;
