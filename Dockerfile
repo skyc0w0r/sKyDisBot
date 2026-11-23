@@ -68,6 +68,7 @@ COPY package.json .
 COPY --from=deps /usr/src/app/node_modules ./node_modules
 COPY --from=build /usr/src/app/build ./build
 COPY log4js.docker.json log4js.default.json
+COPY assets ./assets
 
 VOLUME /data
 
