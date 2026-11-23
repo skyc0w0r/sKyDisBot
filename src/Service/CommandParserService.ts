@@ -8,6 +8,8 @@ import { UserPromtResult } from '../Interface/UserPromtResult.js';
 import { CommandCreationOptions, CommandParamCollection } from '../Model/CommandParser/CommandOption.js';
 import { BaseCommand, InteractionCommand, MessageCommand, RegisteredCommand } from '../Model/CommandParser/index.js';
 import { ActualTextChannel } from '../Interface/Util.js';
+import { GlobalServiceManager } from './ServiceManager.js';
+import DataBaseService from './DataBaseService.js';
 
 /**
  * Use to parse text chat command
@@ -491,6 +493,15 @@ class CommandParserService extends BaseService {
     private async execute(cmd: string, creator: BaseCommand): Promise<void> {
         if (!creator) {
             return;
+        }
+
+        if (creator.Guild) {
+            const db = GlobalServiceManager().GetRequiredService(DataBaseService);
+            const banned = await db.Blacklist.IsBanned(creator.User.id, creator.Guild.id);
+            if (banned) {
+                await creator.reply({ content: `You are banned from using this bot on this server. Reason: ${banned.reason}` });
+                return;
+            }
         }
 
         if (this.wrapper) {
