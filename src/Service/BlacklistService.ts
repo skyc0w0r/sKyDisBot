@@ -1,4 +1,4 @@
-import { AttachmentBuilder, PermissionsBitField } from 'discord.js';
+import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, ComponentType, PermissionsBitField } from 'discord.js';
 import Logger from 'log4js';
 import { BaseService } from '../Interface/ServiceManagerInterface.js';
 import { BaseCommand } from '../Model/CommandParser/index.js';
@@ -6,12 +6,23 @@ import CommandParserService from './CommandParserService.js';
 import { GlobalServiceManager } from './ServiceManager.js';
 import DataBaseService from './DataBaseService.js';
 import human from '../human.js';
-import { RenderBlacklist } from '../Helpers/BlacklistCanvas.js';
+import { BlacklistEntry, RenderBlacklist } from '../Helpers/BlacklistCanvas.js';
 import { parseDuration } from '../Helpers/DurationParser.js';
+
+const PAGE_SIZE = 15;
+const PAGINATION_TIMEOUT = 5 * 60 * 1000;
+const PREV_BUTTON = 'blacklist_prev';
+const NEXT_BUTTON = 'blacklist_next';
+
+interface GuildListCache {
+    key: string;
+    pages: Buffer[];
+}
 
 class BlacklistService extends BaseService {
     private logger: Logger.Logger;
     private db: DataBaseService;
+    private listCache = new Map<string, GuildListCache>();
 
     constructor() {
         super();
@@ -125,7 +136,7 @@ class BlacklistService extends BaseService {
             return b.until.getTime() - a.until.getTime();
         });
 
-        const entries = await Promise.all(banned.map(async (b) => {
+        const entries: BlacklistEntry[] = await Promise.all(banned.map(async (b) => {
             const member = await cmd.Guild.members.fetch(b.userId).catch(() => undefined);
             return {
                 username: member?.displayName ?? b.userId,
@@ -134,14 +145,90 @@ class BlacklistService extends BaseService {
             };
         }));
 
-        const image = await RenderBlacklist(entries);
+        const pages = await this.getOrRenderPages(cmd.Guild.id, entries);
 
-        await cmd.reply({ files: [new AttachmentBuilder(image, { name: 'blacklist.png' })] });
+        if (pages.length === 1) {
+            await cmd.reply({ files: [new AttachmentBuilder(pages[0], { name: 'blacklist.png' })] });
+            return;
+        }
+
+        let page = 0;
+        const message = await cmd.reply({
+            files: [new AttachmentBuilder(pages[page], { name: 'blacklist.png' })],
+            components: [this.buildPaginationRow(page, pages.length)],
+        });
+
+        const collector = message.createMessageComponentCollector({
+            componentType: ComponentType.Button,
+            time: PAGINATION_TIMEOUT,
+        });
+
+        collector.on('collect', async (interaction) => {
+            if (interaction.user.id !== cmd.User.id) {
+                await interaction.reply({ content: 'Only the person who ran the command can flip pages', ephemeral: true });
+                return;
+            }
+
+            page += interaction.customId === NEXT_BUTTON ? 1 : -1;
+            await interaction.update({
+                files: [new AttachmentBuilder(pages[page], { name: 'blacklist.png' })],
+                components: [this.buildPaginationRow(page, pages.length)],
+            });
+        });
+
+        collector.on('end', async () => {
+            await message.edit({ components: [] }).catch(() => undefined);
+        });
+    }
+
+    // Renders one page per PAGE_SIZE entries, reusing the previous render for
+    // this guild as long as the underlying data (and expiry status) hasn't changed.
+    private async getOrRenderPages(guildId: string, entries: BlacklistEntry[]): Promise<Buffer[]> {
+        const key = JSON.stringify(entries);
+        const cached = this.listCache.get(guildId);
+        if (cached && cached.key === key) {
+            return cached.pages;
+        }
+
+        const pageCount = Math.ceil(entries.length / PAGE_SIZE);
+        const pages = await Promise.all(
+            Array.from({ length: pageCount }, (_, i) => entries.slice(i * PAGE_SIZE, (i + 1) * PAGE_SIZE))
+                .map((pageEntries) => RenderBlacklist(pageEntries))
+        );
+
+        this.listCache.set(guildId, { key, pages });
+        return pages;
+    }
+
+    private buildPaginationRow(page: number, pageCount: number): ActionRowBuilder<ButtonBuilder> {
+        return new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder({
+                type: ComponentType.Button,
+                style: ButtonStyle.Secondary,
+                emoji: '⬅️',
+                customId: PREV_BUTTON,
+                disabled: page === 0,
+            }),
+            new ButtonBuilder({
+                type: ComponentType.Button,
+                style: ButtonStyle.Secondary,
+                label: `${page + 1}/${pageCount}`,
+                customId: 'blacklist_page',
+                disabled: true,
+            }),
+            new ButtonBuilder({
+                type: ComponentType.Button,
+                style: ButtonStyle.Secondary,
+                emoji: '➡️',
+                customId: NEXT_BUTTON,
+                disabled: page === pageCount - 1,
+            }),
+        );
     }
 
     extractUserId(raw: string): string | undefined {
         const matches = /^<@(?<user_id>\d+)>$/.exec(raw);
-        return matches?.groups?.user_id
+        return matches?.groups?.user_id;
     }
 }
 
